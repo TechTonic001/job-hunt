@@ -66,7 +66,7 @@ app.use((req, res) => {
 // Centralized 500 Error Middleware
 app.use((err, req, res, _next) => {
   const statusCode = err.status || err.statusCode || 500;
-  
+
   logger.error({
     err: {
       message: err.message,
@@ -87,9 +87,19 @@ app.use((err, req, res, _next) => {
   });
 });
 
-// Start listening if executed directly
+// Start listening
 const server = app.listen(PORT, () => {
   logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`);
+});
+
+// Handle server startup errors (e.g., EADDRINUSE)
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error(`Port ${PORT} is already in use. Terminate the conflicting process or change PORT in .env.`);
+  } else {
+    logger.error({ err }, 'Server encountered an error during listen');
+  }
+  process.exit(1);
 });
 
 // Graceful shutdown handling
@@ -109,5 +119,12 @@ const gracefulShutdown = (signal) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled Promise Rejection');
+});
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught Exception');
+  process.exit(1);
+});
 
 export default app;
