@@ -1,16 +1,17 @@
 import PDFDocument from 'pdfkit';
 
 /**
- * Builds an ATS-friendly, single-column PDF resume using standard Helvetica fonts
- * @param {Object} resume - Resume document object
- * @param {Function} dataCallback - Stream on data chunk callback
- * @param {Function} endCallback - Stream on end callback
+ * Internal core generator building ATS-friendly PDF
  */
-export const buildResumePDF = (resume, dataCallback, endCallback) => {
+const buildDoc = (resume, dataCallback, endCallback) => {
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
 
-  doc.on('data', dataCallback);
-  doc.on('end', endCallback);
+  if (typeof dataCallback === 'function') {
+    doc.on('data', dataCallback);
+  }
+  if (typeof endCallback === 'function') {
+    doc.on('end', endCallback);
+  }
 
   const leftMargin = 50;
   const rightMargin = doc.page.width - 50;
@@ -220,6 +221,33 @@ export const buildResumePDF = (resume, dataCallback, endCallback) => {
 
   doc.moveDown();
   doc.end();
+};
+
+/**
+ * Builds an ATS-friendly, single-column PDF resume
+ * Supports both streaming callbacks (Phase 2) and Promise<Buffer> (Phase 5)
+ * @param {Object} resume - Resume document object
+ * @param {Function} [dataCallback] - Optional data chunk callback
+ * @param {Function} [endCallback] - Optional stream end callback
+ * @returns {Promise<Buffer> | void}
+ */
+export const buildResumePDF = (resume, dataCallback, endCallback) => {
+  if (typeof dataCallback === 'function') {
+    return buildDoc(resume, dataCallback, endCallback);
+  }
+
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    try {
+      buildDoc(
+        resume,
+        (chunk) => chunks.push(chunk),
+        () => resolve(Buffer.concat(chunks))
+      );
+    } catch (err) {
+      reject(err);
+    }
+  });
 };
 
 export default buildResumePDF;

@@ -2,7 +2,8 @@ import express from 'express';
 import {
   createDraft,
   getApplications,
-  updateDraft
+  updateDraft,
+  sendDraft
 } from '../controllers/applicationController.js';
 import { protect } from '../middleware/auth.js';
 
@@ -16,5 +17,8 @@ router.post('/draft', protect, createDraft);
 
 // PUT /api/applications/:id - Update draft details
 router.put('/:id', protect, updateDraft);
+
+// POST /api/applications/:id/send - Dispatch application via Gmail API
+router.post('/:id/send', protect, sendDraft);
 
 export default router;
