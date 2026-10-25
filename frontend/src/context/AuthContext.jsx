@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+/* oxlint-disable react/only-export-components */
+import { createContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
@@ -38,5 +39,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuthContext = () => useContext(AuthContext);
 export default AuthContext;
