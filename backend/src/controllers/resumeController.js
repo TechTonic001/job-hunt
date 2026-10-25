@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Resume from '../models/Resume.js';
+import { buildResumePDF } from '../services/pdfGenerator.js';
 
 /**
  * @desc    Create a new resume
@@ -129,3 +130,39 @@ export const deleteResume = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Generate and stream ATS-friendly PDF preview of a resume
+ * @route   GET /api/resumes/:id/preview.pdf
+ * @access  Private
+ */
+export const getResumePdfPreview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+
+    const resume = await Resume.findOne({
+      _id: id,
+      userId: req.user._id
+    });
+
+    if (!resume) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="resume_preview.pdf"');
+
+    buildResumePDF(
+      resume,
+      (chunk) => res.write(chunk),
+      () => res.end()
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+

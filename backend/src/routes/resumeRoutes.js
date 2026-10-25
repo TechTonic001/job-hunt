@@ -4,7 +4,8 @@ import {
   getResumes,
   getResumeById,
   updateResume,
-  deleteResume
+  deleteResume,
+  getResumePdfPreview
 } from '../controllers/resumeController.js';
 import { protect } from '../middleware/auth.js';
 import { validateResumePayload } from '../validators/resumeValidator.js';
@@ -16,6 +17,9 @@ router
   .get(protect, getResumes)
   .post(protect, validateResumePayload, createResume);
 
+// PDF preview endpoint - placed before /:id block to guarantee explicit route matching
+router.get('/:id/preview.pdf', protect, getResumePdfPreview);
+
 router
   .route('/:id')
   .get(protect, getResumeById)
@@ -23,3 +27,4 @@ router
   .delete(protect, deleteResume);
 
 export default router;
+
