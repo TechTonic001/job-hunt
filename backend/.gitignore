@@ -1,9 +1,11 @@
 # Dependencies
 node_modules/
 
-# Environment Variables
+# Environment Variables - CRITICAL SECURITY: Never commit secrets or credentials
 .env
+.env.local
 .env.*.local
+*.env
 
 # Build output
 dist/
