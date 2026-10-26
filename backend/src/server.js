@@ -3,6 +3,10 @@ import helmet from 'helmet';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import logger from './utils/logger.js';
+import connectDB from './config/db.js';
+import resumeRoutes from './routes/resumeRoutes.js';
+import jobRoutes from './routes/jobRoutes.js';
+import applicationRoutes from './routes/applicationRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +57,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// API Routes
+app.use('/api/resumes', resumeRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/applications', applicationRoutes);
+
 // 404 Handler for unmatched routes
 app.use((req, res) => {
   res.status(404).json({
@@ -67,29 +76,25 @@ app.use((req, res) => {
 app.use((err, req, res, _next) => {
   const statusCode = err.status || err.statusCode || 500;
 
-  logger.error({
-    err: {
-      message: err.message,
-      stack: NODE_ENV === 'development' ? err.stack : undefined
-    },
-    method: req.method,
-    url: req.originalUrl,
-    statusCode
-  });
+  logger.error(err, 'Unhandled API Error');
 
   res.status(statusCode).json({
     error: {
-      message: statusCode === 500 && NODE_ENV === 'production'
-        ? 'Internal Server Error'
-        : err.message || 'Internal Server Error',
+      message:
+        statusCode === 500 && NODE_ENV === 'production'
+          ? 'Internal Server Error'
+          : err.message || 'Internal Server Error',
       statusCode
     }
   });
 });
 
+// Connect to MongoDB before starting server
+await connectDB();
+
 // Start listening
 const server = app.listen(PORT, () => {
-  logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`);
+  logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
 
 // Handle server startup errors (e.g., EADDRINUSE)
