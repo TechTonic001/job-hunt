@@ -1,33 +1,22 @@
 import axios from 'axios';
-import { auth } from '../services/firebase';
+import { auth } from '../services/firebase.js';
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Request interceptor to inject Firebase ID token as Bearer token
+// Request interceptor to attach Firebase ID token
 axiosClient.interceptors.request.use(
   async (config) => {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        const token = await user.getIdToken();
-        config.headers.Authorization = `Bearer ${token}`;
-      } catch (error) {
-        console.error('Error retrieving Firebase ID token:', error);
-      }
+    if (auth.currentUser) {
+      const token = await auth.currentUser.getIdToken(true);
+      config.headers.Authorization = 'Bearer ' + token;
     }
     return config;
   },
-  (error) => Promise.reject(error)
-);
-
-// Response interceptor for centralized error propagation
-axiosClient.interceptors.response.use(
-  (response) => response,
   (error) => Promise.reject(error)
 );
 

@@ -1,12 +1,28 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { Landing } from './pages';
+import ProtectedRoute from './components/ProtectedRoute';
+
+const Landing = () => <h1>Landing Page</h1>;
+const Login = () => <h1>Login Page</h1>;
+const Dashboard = () => <h1>Dashboard Page</h1>;
 
 function App() {
   return (
     <AuthProvider>
-      <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col justify-center items-center">
-        <Landing />
-      </main>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
     </AuthProvider>
   );
 }

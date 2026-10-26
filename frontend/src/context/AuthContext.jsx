@@ -1,42 +1,44 @@
 /* oxlint-disable react/only-export-components */
-import { createContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
 export const AuthContext = createContext({
+  currentUser: null,
   user: null,
-  loading: true,
-  getIdToken: async () => null,
-  signOutUser: async () => {}
+  loading: true
 });
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const getIdToken = async (forceRefresh = false) => {
-    if (!user) return null;
-    return await user.getIdToken(forceRefresh);
-  };
-
-  const signOutUser = async () => {
-    await signOut(auth);
-  };
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, getIdToken, signOutUser }}>
+    <AuthContext.Provider value={{ currentUser, user: currentUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
 
 export default AuthContext;
