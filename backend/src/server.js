@@ -18,6 +18,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Security headers with Helmet
 app.use(helmet());
 
+
 // Cross-Origin Resource Sharing
 app.use(
   cors({
