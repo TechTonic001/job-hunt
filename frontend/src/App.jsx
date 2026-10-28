@@ -1,9 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-
-const Login = () => <h1>Login</h1>;
-const Dashboard = () => <h1>Dashboard</h1>;
+import Login from './pages/Login';
+import CVBuilder from './pages/CVBuilder';
 
 function App() {
   return (
@@ -12,14 +11,14 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
-            path="/dashboard"
+            path="/cv-builder"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <CVBuilder />
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/cv-builder" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

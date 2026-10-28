@@ -10,12 +10,12 @@ const DEFAULT_RESUME_VALUES = {
   title: 'My Resume',
   personalInfo: {
     fullName: 'Amoo Halleluyah Olamilekan',
-    email: 'halleluyah@example.com',
-    phone: '+234 812 345 6789',
+    email: 'test@example.com',
+    phone: '+2340000000000',
     location: 'Ogbomoso, Oyo, Nigeria',
     linkedinUrl: '',
     githubUrl: '',
-    summary: 'Full-stack developer specializing in MERN and Angular...'
+    summary: 'Full-stack developer specializing in MERN and Angular architectures.'
   },
   experience: [
     {
@@ -44,7 +44,7 @@ const DEFAULT_RESUME_VALUES = {
       liveUrl: ''
     }
   ],
-  skills: ['React', 'Node.js', 'PostgreSQL', 'MERN Stack']
+  skills: ['React', 'Node.js', 'PostgreSQL', 'MERN Stack', 'Angular']
 };
 
 export const CVBuilder = () => {
