@@ -1,11 +1,10 @@
 /* oxlint-disable react/only-export-components */
 import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { auth } from '../services/firebase.js';
 
 export const AuthContext = createContext({
   currentUser: null,
-  user: null,
   loading: true
 });
 
@@ -23,11 +22,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600 font-medium text-lg">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <AuthContext.Provider value={{ currentUser, user: currentUser, loading }}>
+    <AuthContext.Provider value={{ currentUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
