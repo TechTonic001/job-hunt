@@ -4,7 +4,6 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import axiosClient from '../api/axiosClient.js';
 import { resumeSchema } from '../validators/resumeSchema.js';
-import { Plus, Trash2, CheckCircle2, RefreshCw, FileText } from 'lucide-react';
 
 const DEFAULT_RESUME_VALUES = {
   title: 'My Resume',
@@ -60,41 +59,46 @@ export const CVBuilder = () => {
   const {
     register,
     control,
-    watch,
     reset,
+    watch,
     getValues,
     setValue,
     formState: { errors, isValid }
   } = useForm({
     resolver: zodResolver(resumeSchema),
-    mode: 'onChange',
-    defaultValues: DEFAULT_RESUME_VALUES
+    defaultValues: DEFAULT_RESUME_VALUES,
+    mode: 'onChange'
+  });
+
+  // Dynamic field arrays
+  const {
+    fields: experienceFields,
+    append: appendExperience,
+    remove: removeExperience
+  } = useFieldArray({
+    control,
+    name: 'experience'
   });
 
   const {
-    fields: expFields,
-    append: appendExp,
-    remove: removeExp
-  } = useFieldArray({ control, name: 'experience' });
+    fields: educationFields,
+    append: appendEducation,
+    remove: removeEducation
+  } = useFieldArray({
+    control,
+    name: 'education'
+  });
 
   const {
-    fields: eduFields,
-    append: appendEdu,
-    remove: removeEdu
-  } = useFieldArray({ control, name: 'education' });
+    fields: projectFields,
+    append: appendProject,
+    remove: removeProject
+  } = useFieldArray({
+    control,
+    name: 'projects'
+  });
 
-  const {
-    fields: projFields,
-    append: appendProj,
-    remove: removeProj
-  } = useFieldArray({ control, name: 'projects' });
-
-  // Update blobUrlRef whenever pdfBlobUrl changes for unmount cleanup
-  useEffect(() => {
-    blobUrlRef.current = pdfBlobUrl;
-  }, [pdfBlobUrl]);
-
-  // Keep resumeIdRef in sync with resumeId
+  // Keep ref updated
   useEffect(() => {
     resumeIdRef.current = resumeId;
   }, [resumeId]);
@@ -117,6 +121,7 @@ export const CVBuilder = () => {
         if (prevUrl) URL.revokeObjectURL(prevUrl);
         return newBlobUrl;
       });
+      blobUrlRef.current = newBlobUrl;
     } catch (err) {
       console.error('Failed to fetch PDF preview:', err);
     } finally {
@@ -199,400 +204,531 @@ export const CVBuilder = () => {
   }, [watch, isValid, getValues, fetchPdfPreview]);
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* LEFT COLUMN: Scrollable Form */}
-      <div className="w-full lg:w-1/2 overflow-y-auto h-auto lg:h-screen p-6 lg:p-8 border-r border-slate-200 dark:border-slate-800">
-        <header className="flex items-center justify-between pb-6 mb-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-xs z-10">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* LEFT COLUMN: Form - 50% width */}
+      <div className="w-1/2 p-8 overflow-y-auto">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between pb-4 border-b border-gray-200">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">CV / Resume Builder</h1>
-            <p className="text-xs text-slate-500">ATS Single-Column Format</p>
+            <h1 className="text-2xl font-bold text-gray-900">CV / Resume Builder</h1>
+            <p className="text-xs text-gray-500">ATS Single-Column Format</p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-medium">
+          <div className="text-xs font-medium">
             {saveStatus === 'Saving...' ? (
-              <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving...
-              </span>
+              <span className="text-amber-600">Saving changes...</span>
             ) : saveStatus === 'Saved' ? (
-              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="w-3.5 h-3.5" /> All changes saved
-              </span>
+              <span className="text-emerald-600">All changes saved</span>
             ) : (
               <span className="text-red-500">{saveStatus}</span>
             )}
           </div>
-        </header>
+        </div>
 
-        <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
-          {/* Resume Title */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+        <form onSubmit={(e) => e.preventDefault()} className="pb-12">
+          {/* Resume Document Title */}
+          <div className="mt-6">
+            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
               Resume Document Title
             </label>
             <input
               {...register('title')}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. Full-Stack Developer Resume"
+              className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              placeholder="e.g. My Resume"
             />
-            {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>}
+            {errors.title && (
+              <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
+            )}
           </div>
 
-          {/* Personal Information */}
-          <section className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 pb-2 border-b border-slate-200 dark:border-slate-800">
-              Personal Information
-            </h2>
+          {/* Section: Personal Information */}
+          <h2 className="text-xl font-bold mt-8 mb-4 pb-2 border-b border-gray-200">
+            Personal Information
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700">Full Name</label>
+              <input
+                {...register('personalInfo.fullName')}
+                className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Amoo Halleluyah Olamilekan"
+              />
+              {errors.personalInfo?.fullName && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.personalInfo.fullName.message}
+                </p>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium mb-1">Full Name</label>
-                <input
-                  {...register('personalInfo.fullName')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                />
-                {errors.personalInfo?.fullName && (
-                  <p className="text-xs text-red-500 mt-1">{errors.personalInfo.fullName.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Email</label>
+                <label className="block text-xs font-medium text-gray-700">Email Address</label>
                 <input
                   type="email"
                   {...register('personalInfo.email')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="test@example.com"
                 />
                 {errors.personalInfo?.email && (
-                  <p className="text-xs text-red-500 mt-1">{errors.personalInfo.email.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.personalInfo.email.message}
+                  </p>
                 )}
               </div>
+
               <div>
-                <label className="block text-xs font-medium mb-1">Phone</label>
+                <label className="block text-xs font-medium text-gray-700">Phone Number</label>
                 <input
                   {...register('personalInfo.phone')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="+2340000000000"
                 />
                 {errors.personalInfo?.phone && (
-                  <p className="text-xs text-red-500 mt-1">{errors.personalInfo.phone.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.personalInfo.phone.message}
+                  </p>
                 )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Location</label>
-                <input
-                  {...register('personalInfo.location')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                />
-                {errors.personalInfo?.location && (
-                  <p className="text-xs text-red-500 mt-1">{errors.personalInfo.location.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">LinkedIn URL (optional)</label>
-                <input
-                  {...register('personalInfo.linkedinUrl')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">GitHub URL (optional)</label>
-                <input
-                  {...register('personalInfo.githubUrl')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                />
               </div>
             </div>
+
             <div>
-              <label className="block text-xs font-medium mb-1">Professional Summary</label>
+              <label className="block text-xs font-medium text-gray-700">Location</label>
+              <input
+                {...register('personalInfo.location')}
+                className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Ogbomoso, Oyo, Nigeria"
+              />
+              {errors.personalInfo?.location && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.personalInfo.location.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700">LinkedIn URL</label>
+                <input
+                  {...register('personalInfo.linkedinUrl')}
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://linkedin.com/in/username"
+                />
+                {errors.personalInfo?.linkedinUrl && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.personalInfo.linkedinUrl.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700">GitHub URL</label>
+                <input
+                  {...register('personalInfo.githubUrl')}
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://github.com/username"
+                />
+                {errors.personalInfo?.githubUrl && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.personalInfo.githubUrl.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">Professional Summary</label>
               <textarea
                 rows={3}
                 {...register('personalInfo.summary')}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Full-stack developer specializing in MERN and Angular architectures."
               />
+              {errors.personalInfo?.summary && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.personalInfo.summary.message}
+                </p>
+              )}
             </div>
-          </section>
+          </div>
 
-          {/* Work Experience */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Work Experience
-              </h2>
-              <button
-                type="button"
-                onClick={() =>
-                  appendExp({
-                    company: '',
-                    role: '',
-                    location: '',
-                    startDate: '',
-                    endDate: '',
-                    isCurrent: false,
-                    bulletPoints: ['Developed high-performance components.']
-                  })
-                }
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Role
-              </button>
-            </div>
+          {/* Section: Work Experience */}
+          <div className="flex items-center justify-between mt-8 mb-4 pb-2 border-b border-gray-200">
+            <h2 className="text-xl font-bold">Work Experience</h2>
+            <button
+              type="button"
+              onClick={() =>
+                appendExperience({
+                  company: '',
+                  role: '',
+                  location: '',
+                  startDate: '',
+                  endDate: '',
+                  isCurrent: false,
+                  bulletPoints: ['']
+                })
+              }
+              className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 text-sm font-medium transition-colors cursor-pointer"
+            >
+              + Add Experience
+            </button>
+          </div>
 
-            {expFields.map((field, index) => (
+          <div className="space-y-6">
+            {experienceFields.map((field, index) => (
               <div
                 key={field.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 space-y-3 relative group"
+                className="p-4 bg-white rounded-lg border border-gray-200 space-y-4 relative"
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-semibold text-slate-500">Position #{index + 1}</span>
-                  {expFields.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeExp(index)}
-                      className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                      title="Remove experience"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <span className="text-sm font-semibold text-gray-600">
+                    Experience #{index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeExperience(index)}
+                    className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs mb-1">Company</label>
+                    <label className="block text-xs font-medium text-gray-700">Company</label>
                     <input
                       {...register(`experience.${index}.company`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Ennovate Lab"
                     />
+                    {errors.experience?.[index]?.company && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.experience[index].company.message}
+                      </p>
+                    )}
                   </div>
+
                   <div>
-                    <label className="block text-xs mb-1">Role / Title</label>
+                    <label className="block text-xs font-medium text-gray-700">Role / Title</label>
                     <input
                       {...register(`experience.${index}.role`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Software Development Intern"
+                    />
+                    {errors.experience?.[index]?.role && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.experience[index].role.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700">Location</label>
+                    <input
+                      {...register(`experience.${index}.location`)}
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Oyo, Nigeria"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-xs mb-1">Start Date</label>
+                    <label className="block text-xs font-medium text-gray-700">Start Date</label>
                     <input
                       {...register(`experience.${index}.startDate`)}
-                      placeholder="e.g. Oct 2025"
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Oct 2025"
                     />
+                    {errors.experience?.[index]?.startDate && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.experience[index].startDate.message}
+                      </p>
+                    )}
                   </div>
+
                   <div>
-                    <label className="block text-xs mb-1">End Date</label>
+                    <label className="block text-xs font-medium text-gray-700">End Date</label>
                     <input
                       {...register(`experience.${index}.endDate`)}
-                      placeholder="e.g. Dec 2025"
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Dec 2025"
                     />
                   </div>
                 </div>
 
+                {/* Bullet Points */}
                 <div>
-                  <label className="block text-xs mb-1">Bullet Point Description</label>
-                  <input
-                    {...register(`experience.${index}.bulletPoints.0`)}
-                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-                    placeholder="Key impact or achievement (min 5 chars)"
+                  <label className="block text-xs font-medium text-gray-700">
+                    Key Bullet Points (one per line)
+                  </label>
+                  <textarea
+                    rows={3}
+                    defaultValue={field.bulletPoints?.join('\n') || ''}
+                    onChange={(e) => {
+                      const lines = e.target.value
+                        .split('\n')
+                        .map((l) => l.trim())
+                        .filter(Boolean);
+                      setValue(`experience.${index}.bulletPoints`, lines, {
+                        shouldValidate: true
+                      });
+                    }}
+                    className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Developed and deployed full-stack web applications."
                   />
+                  {errors.experience?.[index]?.bulletPoints && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors.experience[index].bulletPoints.message}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
-          </section>
+          </div>
 
-          {/* Education */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Education
-              </h2>
-              <button
-                type="button"
-                onClick={() =>
-                  appendEdu({
-                    institution: '',
-                    degree: '',
-                    fieldOfStudy: '',
-                    graduationYear: '2026'
-                  })
-                }
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Education
-              </button>
-            </div>
+          {/* Section: Education */}
+          <div className="flex items-center justify-between mt-8 mb-4 pb-2 border-b border-gray-200">
+            <h2 className="text-xl font-bold">Education</h2>
+            <button
+              type="button"
+              onClick={() =>
+                appendEducation({
+                  institution: '',
+                  degree: '',
+                  fieldOfStudy: '',
+                  graduationYear: ''
+                })
+              }
+              className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 text-sm font-medium transition-colors cursor-pointer"
+            >
+              + Add Education
+            </button>
+          </div>
 
-            {eduFields.map((field, index) => (
+          <div className="space-y-6">
+            {educationFields.map((field, index) => (
               <div
                 key={field.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 space-y-3 relative"
+                className="p-4 bg-white rounded-lg border border-gray-200 space-y-4 relative"
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-semibold text-slate-500">Degree #{index + 1}</span>
-                  {eduFields.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeEdu(index)}
-                      className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <span className="text-sm font-semibold text-gray-600">
+                    Education #{index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeEducation(index)}
+                    className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs mb-1">Institution</label>
+                    <label className="block text-xs font-medium text-gray-700">Institution</label>
                     <input
                       {...register(`education.${index}.institution`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="SQI College of ICT"
                     />
+                    {errors.education?.[index]?.institution && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.education[index].institution.message}
+                      </p>
+                    )}
                   </div>
+
                   <div>
-                    <label className="block text-xs mb-1">Degree</label>
+                    <label className="block text-xs font-medium text-gray-700">Degree</label>
                     <input
                       {...register(`education.${index}.degree`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="National Diploma"
                     />
+                    {errors.education?.[index]?.degree && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.education[index].degree.message}
+                      </p>
+                    )}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs mb-1">Field of Study</label>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Field of Study
+                    </label>
                     <input
                       {...register(`education.${index}.fieldOfStudy`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Computer Science"
                     />
+                    {errors.education?.[index]?.fieldOfStudy && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.education[index].fieldOfStudy.message}
+                      </p>
+                    )}
                   </div>
+
                   <div>
-                    <label className="block text-xs mb-1">Graduation Year</label>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Graduation Year
+                    </label>
                     <input
                       {...register(`education.${index}.graduationYear`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="2026"
                     />
+                    {errors.education?.[index]?.graduationYear && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.education[index].graduationYear.message}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
-          </section>
+          </div>
 
-          {/* Projects */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Key Projects
-              </h2>
-              <button
-                type="button"
-                onClick={() =>
-                  appendProj({
-                    name: '',
-                    description: 'Automated platform with high availability and reliability.',
-                    techStack: ['React', 'Node.js'],
-                    liveUrl: ''
-                  })
-                }
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Project
-              </button>
-            </div>
+          {/* Section: Projects */}
+          <div className="flex items-center justify-between mt-8 mb-4 pb-2 border-b border-gray-200">
+            <h2 className="text-xl font-bold">Projects</h2>
+            <button
+              type="button"
+              onClick={() =>
+                appendProject({
+                  name: '',
+                  description: '',
+                  techStack: [],
+                  liveUrl: ''
+                })
+              }
+              className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 text-sm font-medium transition-colors cursor-pointer"
+            >
+              + Add Project
+            </button>
+          </div>
 
-            {projFields.map((field, index) => (
+          <div className="space-y-6">
+            {projectFields.map((field, index) => (
               <div
                 key={field.id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 space-y-3 relative"
+                className="p-4 bg-white rounded-lg border border-gray-200 space-y-4 relative"
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-semibold text-slate-500">Project #{index + 1}</span>
-                  {projFields.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeProj(index)}
-                      className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <span className="text-sm font-semibold text-gray-600">
+                    Project #{index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeProject(index)}
+                    className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs mb-1">Project Name</label>
+                    <label className="block text-xs font-medium text-gray-700">Project Name</label>
                     <input
                       {...register(`projects.${index}.name`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="ProTech"
                     />
+                    {errors.projects?.[index]?.name && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.projects[index].name.message}
+                      </p>
+                    )}
                   </div>
+
                   <div>
-                    <label className="block text-xs mb-1">Live URL (optional)</label>
+                    <label className="block text-xs font-medium text-gray-700">Live URL</label>
                     <input
                       {...register(`projects.${index}.liveUrl`)}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="https://protech.app"
                     />
                   </div>
                 </div>
+
                 <div>
-                  <label className="block text-xs mb-1">Description (min 10 chars)</label>
+                  <label className="block text-xs font-medium text-gray-700">Description</label>
                   <textarea
                     rows={2}
                     {...register(`projects.${index}.description`)}
-                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                    className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Automated web-based rent tracking platform"
+                  />
+                  {errors.projects?.[index]?.description && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors.projects[index].description.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Tech Stack (comma-separated)
+                  </label>
+                  <input
+                    defaultValue={field.techStack?.join(', ') || ''}
+                    onChange={(e) => {
+                      const tags = e.target.value
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      setValue(`projects.${index}.techStack`, tags, { shouldValidate: true });
+                    }}
+                    className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="React, Node.js, PostgreSQL"
                   />
                 </div>
               </div>
             ))}
-          </section>
+          </div>
 
-          {/* Skills */}
-          <section className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 pb-2 border-b border-slate-200 dark:border-slate-800">
-              Technical Skills
-            </h2>
-            <div>
-              <label className="block text-xs mb-1 text-slate-500">
-                Comma-separated skills (e.g. React, Node.js, PostgreSQL)
-              </label>
-              <input
-                type="text"
-                defaultValue={DEFAULT_RESUME_VALUES.skills.join(', ')}
-                onChange={(e) => {
-                  const items = e.target.value
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                  setValue('skills', items, { shouldValidate: true });
-                }}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              />
-              {errors.skills && (
-                <p className="text-xs text-red-500 mt-1">{errors.skills.message}</p>
-              )}
-            </div>
-          </section>
+          {/* Section: Skills */}
+          <h2 className="text-xl font-bold mt-8 mb-4 pb-2 border-b border-gray-200">
+            Skills
+          </h2>
+          <div>
+            <label className="block text-xs font-medium text-gray-700">
+              Core Skills (comma-separated)
+            </label>
+            <input
+              defaultValue={DEFAULT_RESUME_VALUES.skills.join(', ')}
+              onChange={(e) => {
+                const items = e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                setValue('skills', items, { shouldValidate: true });
+              }}
+              className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              placeholder="React, Node.js, PostgreSQL, MERN Stack, Angular"
+            />
+            {errors.skills && (
+              <p className="text-xs text-red-500 mt-1">{errors.skills.message}</p>
+            )}
+          </div>
         </form>
       </div>
 
-      {/* RIGHT COLUMN: PDF Preview Fixed */}
-      <div className="w-full lg:w-1/2 h-[600px] lg:h-screen p-4 lg:p-6 bg-slate-100 dark:bg-slate-900 flex flex-col sticky top-0">
-        <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-semibold">Live ATS Preview</span>
+      {/* RIGHT COLUMN: PDF Preview - 50% width */}
+      <div className="w-1/2 bg-gray-200 border-l border-gray-300 p-6 flex flex-col items-center justify-center">
+        {pdfBlobUrl && !isPdfLoading ? (
+          <iframe
+            src={pdfBlobUrl}
+            className="w-full h-full rounded-lg shadow-xl border-0 bg-white"
+            title="Resume PDF Preview"
+          />
+        ) : (
+          <div className="animate-pulse text-gray-500">
+            Generating ATS PDF...
           </div>
-          {isPdfLoading && (
-            <span className="text-xs text-slate-500 flex items-center gap-1">
-              <RefreshCw className="w-3 h-3 animate-spin" /> Rendering PDF...
-            </span>
-          )}
-        </div>
-
-        <div className="flex-1 w-full h-full relative rounded-xl overflow-hidden bg-white shadow-md">
-          {pdfBlobUrl ? (
-            <iframe
-              src={pdfBlobUrl}
-              className="w-full h-full rounded-lg border-2 border-gray-200"
-              title="Resume PDF Preview"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-              <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-              Generating PDF Preview...
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
