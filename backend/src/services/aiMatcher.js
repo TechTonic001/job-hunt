@@ -13,7 +13,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  */
 export const evaluateJobMatch = async (resumeData, jobDescriptionText) => {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
     generationConfig: { responseMimeType: 'application/json' }
   });
 

@@ -3,6 +3,15 @@ import axiosClient from '../api/axiosClient.js';
 import JobCard from '../components/JobCard.jsx';
 import DispatchModal from '../components/DispatchModal.jsx';
 
+const extractErrorMessage = (err, fallbackMessage) => {
+  const data = err?.response?.data;
+  if (!data) return err?.message || fallbackMessage;
+  if (typeof data.error === 'string') return data.error;
+  if (data.error && typeof data.error.message === 'string') return data.error.message;
+  if (typeof data.message === 'string') return data.message;
+  return fallbackMessage;
+};
+
 export const JobFeed = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,10 +39,10 @@ export const JobFeed = () => {
         }
       } catch (err) {
         if (isMounted) {
-          const message =
-            err?.response?.data?.error ||
-            err?.response?.data?.message ||
-            'Failed to fetch matching jobs. Please ensure you have created a CV.';
+          const message = extractErrorMessage(
+            err,
+            'Failed to fetch matching jobs. Please ensure you have created a CV.'
+          );
           setError(message);
         }
       } finally {
@@ -94,7 +103,7 @@ export const JobFeed = () => {
       {/* Error State */}
       {!loading && error && (
         <div className="mt-4 p-4 rounded-lg bg-red-50 border border-red-200 text-red-600 font-medium">
-          {error}
+          {typeof error === 'string' ? error : error?.message || 'An error occurred'}
         </div>
       )}
 

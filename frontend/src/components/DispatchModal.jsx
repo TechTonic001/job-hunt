@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import { Loader2, Send, CheckCircle, X } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
 
+const extractErrorMessage = (err, fallbackMessage) => {
+  const data = err?.response?.data;
+  if (!data) return err?.message || fallbackMessage;
+  if (typeof data.error === 'string') return data.error;
+  if (data.error && typeof data.error.message === 'string') return data.error.message;
+  if (typeof data.message === 'string') return data.message;
+  return fallbackMessage;
+};
+
 export const DispatchModal = ({ isOpen, onClose, job }) => {
   const [status, setStatus] = useState('drafting');
   const [subject, setSubject] = useState('');
@@ -40,10 +49,10 @@ export const DispatchModal = ({ isOpen, onClose, job }) => {
         }
       } catch (err) {
         if (isMounted) {
-          const message =
-            err?.response?.data?.error ||
-            err?.response?.data?.message ||
-            'Failed to generate draft cover letter. Please try again.';
+          const message = extractErrorMessage(
+            err,
+            'Failed to generate draft cover letter. Please try again.'
+          );
           setErrorMessage(message);
           setStatus('error');
         }
@@ -74,10 +83,10 @@ export const DispatchModal = ({ isOpen, onClose, job }) => {
 
       setStatus('success');
     } catch (err) {
-      const message =
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        'Failed to dispatch application via Gmail API.';
+      const message = extractErrorMessage(
+        err,
+        'Failed to dispatch application via Gmail API.'
+      );
       setErrorMessage(message);
       setStatus('error');
     }
@@ -171,7 +180,11 @@ export const DispatchModal = ({ isOpen, onClose, job }) => {
 
           {status === 'error' && (
             <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 min-h-[350px]">
-              <p className="text-red-600 font-medium">{errorMessage}</p>
+              <p className="text-red-600 font-medium">
+                {typeof errorMessage === 'string'
+                  ? errorMessage
+                  : errorMessage?.message || 'An unexpected error occurred.'}
+              </p>
               <button
                 type="button"
                 onClick={onClose}
