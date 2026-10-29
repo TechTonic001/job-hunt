@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { auth } from '../services/firebase.js';
 
+// Normalize base URL to prevent duplicate '/api/api' pathing if env contains '/api'
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const baseURL = rawBaseUrl.replace(/\/api\/?$/, '');
+
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
+  baseURL,
   headers: {
     'Content-Type': 'application/json'
   }
