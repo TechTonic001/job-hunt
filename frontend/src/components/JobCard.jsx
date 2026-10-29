@@ -38,7 +38,10 @@ export const JobCard = ({ job }) => {
         <div>
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
           <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
-            <span className="font-medium text-gray-700">{company}</span>
+            <span className="inline-flex items-center gap-1 font-medium text-gray-700">
+              <Briefcase className="w-4 h-4 text-gray-400 shrink-0" />
+              <span>{company}</span>
+            </span>
             <span>•</span>
             <span className="inline-flex items-center gap-1">
               <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
