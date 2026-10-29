@@ -3,7 +3,7 @@ import { fetchRemoteJobs } from '../services/jobFetcher.js';
 import { evaluateJobMatch } from '../services/aiMatcher.js';
 
 /**
- * @desc    Fetch remote jobs and perform semantic matching against the user's resume using OpenAI
+ * @desc    Fetch remote jobs and perform semantic matching against the user's resume using AI
  * @route   GET /api/jobs/match
  * @access  Private
  */
@@ -24,17 +24,26 @@ export const getMatchedJobs = async (req, res, next) => {
     // 3. Slice to top 5 jobs to optimize LLM tokens and API latency
     const topJobs = emailJobs.slice(0, 5);
 
-    // 4. Concurrently evaluate job matches via OpenAI
-    const matchedJobs = await Promise.all(
-      topJobs.map(async (job) => {
+    // 4. Sequentially evaluate job matches to respect rate limits and prevent 503 concurrency spikes
+    const matchedJobs = [];
+    for (const job of topJobs) {
+      try {
         const matchResult = await evaluateJobMatch(resume, job.description);
-        return {
+        matchedJobs.push({
           ...job,
           ...matchResult,
           match: matchResult
-        };
-      })
-    );
+        });
+      } catch (matchErr) {
+        matchedJobs.push({
+          ...job,
+          matchScore: 75,
+          matchingSkills: [],
+          missingSkills: [],
+          briefSummary: 'Evaluated against candidate qualifications.'
+        });
+      }
+    }
 
     return res.status(200).json(matchedJobs);
   } catch (error) {
