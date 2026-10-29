@@ -1,13 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import CVBuilder from './pages/CVBuilder';
+import JobFeed from './pages/JobFeed';
 
-function App() {
+function AppRoutes() {
+  const { currentUser } = useAuth();
+
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {currentUser && <Navbar />}
+      <div className="flex-1">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
@@ -18,8 +23,26 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/cv-builder" replace />} />
+          <Route
+            path="/jobs"
+            element={
+              <ProtectedRoute>
+                <JobFeed />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/jobs" replace />} />
         </Routes>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
   );
