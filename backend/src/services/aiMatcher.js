@@ -1,9 +1,24 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+let genAI = null;
+const getGenAI = () => {
+  if (!genAI) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      throw new Error('GEMINI_API_KEY is not configured in backend/.env');
+    }
+    genAI = new GoogleGenerativeAI(key);
+  }
+  return genAI;
+};
 
 /**
  * Evaluates candidate resume against job description using Gemini AI semantic matching
@@ -12,7 +27,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  * @returns {Promise<{ matchScore: number, matchingSkills: string[], missingSkills: string[], briefSummary: string }>}
  */
 export const evaluateJobMatch = async (resumeData, jobDescriptionText) => {
-  const model = genAI.getGenerativeModel({
+  const client = getGenAI();
+  const model = client.getGenerativeModel({
     model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
     generationConfig: { responseMimeType: 'application/json' }
   });

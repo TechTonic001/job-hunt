@@ -1,15 +1,22 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Explicitly load backend/.env, falling back to process.cwd()/.env
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config();
+
 import logger from './utils/logger.js';
 import connectDB from './config/db.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
