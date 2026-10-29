@@ -1,6 +1,6 @@
 import { MapPin, Briefcase, CheckCircle2, XCircle, Mail } from 'lucide-react';
 
-export const JobCard = ({ job }) => {
+export const JobCard = ({ job, onDraftClick }) => {
   const {
     id,
     title,
@@ -28,7 +28,11 @@ export const JobCard = ({ job }) => {
   }
 
   const handleDraftApplication = () => {
-    console.log('Drafting for:', job?.id || id);
+    if (onDraftClick) {
+      onDraftClick(job);
+    } else {
+      console.log('Drafting for:', job?.id || id);
+    }
   };
 
   return (
