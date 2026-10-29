@@ -1,26 +1,22 @@
 /* oxlint-disable react/incompatible-library */
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import axiosClient from '../api/axiosClient.js';
-import { resumeSchema } from '../validators/resumeSchema.js';
 
 const DEFAULT_RESUME_VALUES = {
-  title: 'My Resume',
+  fullName: 'Amoo Halleluyah Olamilekan',
   personalInfo: {
-    fullName: 'Amoo Halleluyah Olamilekan',
     email: 'test@example.com',
     phone: '+2340000000000',
     location: 'Ogbomoso, Oyo, Nigeria',
-    linkedinUrl: '',
-    githubUrl: '',
-    summary: 'Full-stack developer specializing in MERN and Angular architectures.'
+    github: '',
+    linkedin: ''
   },
+  summary: 'Full-stack software developer specializing in MERN, Angular, and PostgreSQL architectures.',
   experience: [
     {
       company: 'Ennovate Lab',
-      role: 'Software Development Intern',
-      location: 'Oyo, Nigeria',
+      role: 'Software Development Intern (SIWES)',
       startDate: 'Oct 2025',
       endDate: 'Dec 2025',
       isCurrent: false,
@@ -47,25 +43,14 @@ const DEFAULT_RESUME_VALUES = {
 };
 
 export const CVBuilder = () => {
-  const [resumeId, setResumeId] = useState(null);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
-  const [isPdfLoading, setIsPdfLoading] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('Saved');
+  const [resumeId, setResumeId] = useState('');
+  const [pdfBlobUrl, setPdfBlobUrl] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
   const isInitialLoad = useRef(true);
-  const resumeIdRef = useRef(null);
-  const blobUrlRef = useRef(null);
   const saveTimeoutRef = useRef(null);
 
-  const {
-    register,
-    control,
-    reset,
-    watch,
-    getValues,
-    setValue,
-    formState: { errors, isValid }
-  } = useForm({
-    resolver: zodResolver(resumeSchema),
+  const { register, control, reset, watch, setValue } = useForm({
     defaultValues: DEFAULT_RESUME_VALUES,
     mode: 'onChange'
   });
@@ -98,65 +83,74 @@ export const CVBuilder = () => {
     name: 'projects'
   });
 
-  // Keep ref updated
-  useEffect(() => {
-    resumeIdRef.current = resumeId;
-  }, [resumeId]);
-
-  // Function to fetch the PDF blob preview
+  // Fetch PDF blob preview and set URL
   const fetchPdfPreview = useCallback(async (id) => {
-    const targetId = id || resumeIdRef.current;
+    const targetId = id || resumeId;
     if (!targetId) return;
 
     try {
-      setIsPdfLoading(true);
       const response = await axiosClient.get(`/api/resumes/${targetId}/preview.pdf`, {
         responseType: 'blob'
       });
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const newBlobUrl = URL.createObjectURL(blob);
-
-      setPdfBlobUrl((prevUrl) => {
-        if (prevUrl) URL.revokeObjectURL(prevUrl);
-        return newBlobUrl;
-      });
-      blobUrlRef.current = newBlobUrl;
+      const blobUrl = URL.createObjectURL(response.data);
+      setPdfBlobUrl(blobUrl);
     } catch (err) {
       console.error('Failed to fetch PDF preview:', err);
-    } finally {
-      setIsPdfLoading(false);
     }
-  }, []);
+  }, [resumeId]);
 
-  // Initial load: Fetch resumes or create default
+  // Lifecycle on mount: Fetch or create default resume
   useEffect(() => {
     let isMounted = true;
 
-    const initializeResume = async () => {
+    const initResume = async () => {
       try {
         const { data: resumes } = await axiosClient.get('/api/resumes');
 
         if (Array.isArray(resumes) && resumes.length > 0) {
-          const currentResume = resumes[0];
+          const existing = resumes[0];
           if (isMounted) {
-            setResumeId(currentResume._id);
-            resumeIdRef.current = currentResume._id;
-            reset(currentResume);
-            fetchPdfPreview(currentResume._id);
+            setResumeId(existing._id);
+            reset({
+              fullName: existing.personalInfo?.fullName || DEFAULT_RESUME_VALUES.fullName,
+              summary: existing.personalInfo?.summary || DEFAULT_RESUME_VALUES.summary,
+              personalInfo: {
+                email: existing.personalInfo?.email || DEFAULT_RESUME_VALUES.personalInfo.email,
+                phone: existing.personalInfo?.phone || DEFAULT_RESUME_VALUES.personalInfo.phone,
+                location: existing.personalInfo?.location || DEFAULT_RESUME_VALUES.personalInfo.location,
+                github: existing.personalInfo?.githubUrl || existing.personalInfo?.github || '',
+                linkedin: existing.personalInfo?.linkedinUrl || existing.personalInfo?.linkedin || ''
+              },
+              experience: existing.experience?.length ? existing.experience : DEFAULT_RESUME_VALUES.experience,
+              education: existing.education?.length ? existing.education : DEFAULT_RESUME_VALUES.education,
+              projects: existing.projects?.length ? existing.projects : DEFAULT_RESUME_VALUES.projects,
+              skills: existing.skills?.length ? existing.skills : DEFAULT_RESUME_VALUES.skills
+            });
           }
         } else {
-          // Create default resume
-          const { data: created } = await axiosClient.post('/api/resumes', DEFAULT_RESUME_VALUES);
+          const createPayload = {
+            title: 'My Resume',
+            personalInfo: {
+              fullName: DEFAULT_RESUME_VALUES.fullName,
+              email: DEFAULT_RESUME_VALUES.personalInfo.email,
+              phone: DEFAULT_RESUME_VALUES.personalInfo.phone,
+              location: DEFAULT_RESUME_VALUES.personalInfo.location,
+              linkedinUrl: DEFAULT_RESUME_VALUES.personalInfo.linkedin,
+              githubUrl: DEFAULT_RESUME_VALUES.personalInfo.github,
+              summary: DEFAULT_RESUME_VALUES.summary
+            },
+            experience: DEFAULT_RESUME_VALUES.experience,
+            education: DEFAULT_RESUME_VALUES.education,
+            projects: DEFAULT_RESUME_VALUES.projects,
+            skills: DEFAULT_RESUME_VALUES.skills
+          };
+          const { data: created } = await axiosClient.post('/api/resumes', createPayload);
           if (isMounted) {
             setResumeId(created._id);
-            resumeIdRef.current = created._id;
-            reset(created);
-            fetchPdfPreview(created._id);
           }
         }
       } catch (err) {
-        console.error('Error initializing resume:', err);
+        console.error('Error initializing resume on mount:', err);
       } finally {
         setTimeout(() => {
           isInitialLoad.current = false;
@@ -164,35 +158,56 @@ export const CVBuilder = () => {
       }
     };
 
-    initializeResume();
+    initResume();
 
     return () => {
       isMounted = false;
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-      }
     };
-  }, [reset, fetchPdfPreview]);
+  }, [reset]);
 
-  // Debounced auto-save using watch subscription
+  // Fetch initial PDF when resumeId is set
   useEffect(() => {
-    const subscription = watch(() => {
-      if (isInitialLoad.current || !resumeIdRef.current || !isValid) {
+    if (resumeId) {
+      fetchPdfPreview(resumeId);
+    }
+  }, [resumeId, fetchPdfPreview]);
+
+  // Auto-Save effect: Debounced 1000ms
+  useEffect(() => {
+    if (!resumeId) return;
+
+    const subscription = watch((formData) => {
+      if (isInitialLoad.current) {
         return;
       }
 
-      setSaveStatus('Saving...');
       clearTimeout(saveTimeoutRef.current);
-
       saveTimeoutRef.current = setTimeout(async () => {
         try {
-          const payload = getValues();
-          await axiosClient.put(`/api/resumes/${resumeIdRef.current}`, payload);
-          setSaveStatus('Saved');
-          fetchPdfPreview(resumeIdRef.current);
+          setIsSaving(true);
+          const payload = {
+            title: 'My Resume',
+            personalInfo: {
+              fullName: formData.fullName || formData.personalInfo?.fullName || 'Amoo Halleluyah Olamilekan',
+              email: formData.personalInfo?.email || 'test@example.com',
+              phone: formData.personalInfo?.phone || '+2340000000000',
+              location: formData.personalInfo?.location || 'Ogbomoso, Oyo, Nigeria',
+              linkedinUrl: formData.personalInfo?.linkedin || '',
+              githubUrl: formData.personalInfo?.github || '',
+              summary: formData.summary || formData.personalInfo?.summary || ''
+            },
+            experience: Array.isArray(formData.experience) ? formData.experience : [],
+            education: Array.isArray(formData.education) ? formData.education : [],
+            projects: Array.isArray(formData.projects) ? formData.projects : [],
+            skills: Array.isArray(formData.skills) ? formData.skills : []
+          };
+
+          await axiosClient.put(`/api/resumes/${resumeId}`, payload);
+          setIsSaving(false);
+          fetchPdfPreview(resumeId);
         } catch (err) {
           console.error('Auto-save error:', err);
-          setSaveStatus('Error saving');
+          setIsSaving(false);
         }
       }, 1000);
     });
@@ -201,46 +216,30 @@ export const CVBuilder = () => {
       subscription.unsubscribe();
       clearTimeout(saveTimeoutRef.current);
     };
-  }, [watch, isValid, getValues, fetchPdfPreview]);
+  }, [watch, resumeId, fetchPdfPreview]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* LEFT COLUMN: Form - 50% width */}
+      {/* Left Column (Form) */}
       <div className="w-1/2 p-8 overflow-y-auto">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+        <div className="flex items-center justify-between pb-4 mb-2 border-b border-gray-200">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">CV / Resume Builder</h1>
             <p className="text-xs text-gray-500">ATS Single-Column Format</p>
           </div>
-          <div className="text-xs font-medium">
-            {saveStatus === 'Saving...' ? (
-              <span className="text-amber-600">Saving changes...</span>
-            ) : saveStatus === 'Saved' ? (
-              <span className="text-emerald-600">All changes saved</span>
-            ) : (
-              <span className="text-red-500">{saveStatus}</span>
-            )}
-          </div>
+          {isSaving ? (
+            <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 animate-pulse">
+              Saving...
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-emerald-600">
+              All changes saved
+            </span>
+          )}
         </div>
 
         <form onSubmit={(e) => e.preventDefault()} className="pb-12">
-          {/* Resume Document Title */}
-          <div className="mt-6">
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              Resume Document Title
-            </label>
-            <input
-              {...register('title')}
-              className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              placeholder="e.g. My Resume"
-            />
-            {errors.title && (
-              <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
-            )}
-          </div>
-
-          {/* Section: Personal Information */}
+          {/* Section: Personal Info */}
           <h2 className="text-xl font-bold mt-8 mb-4 pb-2 border-b border-gray-200">
             Personal Information
           </h2>
@@ -248,15 +247,10 @@ export const CVBuilder = () => {
             <div>
               <label className="block text-xs font-medium text-gray-700">Full Name</label>
               <input
-                {...register('personalInfo.fullName')}
-                className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                {...register('fullName')}
+                className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                 placeholder="Amoo Halleluyah Olamilekan"
               />
-              {errors.personalInfo?.fullName && (
-                <p className="text-xs text-red-500 mt-1">
-                  {errors.personalInfo.fullName.message}
-                </p>
-              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -265,28 +259,18 @@ export const CVBuilder = () => {
                 <input
                   type="email"
                   {...register('personalInfo.email')}
-                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                   placeholder="test@example.com"
                 />
-                {errors.personalInfo?.email && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.personalInfo.email.message}
-                  </p>
-                )}
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-700">Phone Number</label>
                 <input
                   {...register('personalInfo.phone')}
-                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                   placeholder="+2340000000000"
                 />
-                {errors.personalInfo?.phone && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.personalInfo.phone.message}
-                  </p>
-                )}
               </div>
             </div>
 
@@ -294,43 +278,28 @@ export const CVBuilder = () => {
               <label className="block text-xs font-medium text-gray-700">Location</label>
               <input
                 {...register('personalInfo.location')}
-                className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                 placeholder="Ogbomoso, Oyo, Nigeria"
               />
-              {errors.personalInfo?.location && (
-                <p className="text-xs text-red-500 mt-1">
-                  {errors.personalInfo.location.message}
-                </p>
-              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700">LinkedIn URL</label>
                 <input
-                  {...register('personalInfo.linkedinUrl')}
-                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  {...register('personalInfo.linkedin')}
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                   placeholder="https://linkedin.com/in/username"
                 />
-                {errors.personalInfo?.linkedinUrl && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.personalInfo.linkedinUrl.message}
-                  </p>
-                )}
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-700">GitHub URL</label>
                 <input
-                  {...register('personalInfo.githubUrl')}
-                  className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  {...register('personalInfo.github')}
+                  className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                   placeholder="https://github.com/username"
                 />
-                {errors.personalInfo?.githubUrl && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.personalInfo.githubUrl.message}
-                  </p>
-                )}
               </div>
             </div>
 
@@ -338,28 +307,22 @@ export const CVBuilder = () => {
               <label className="block text-xs font-medium text-gray-700">Professional Summary</label>
               <textarea
                 rows={3}
-                {...register('personalInfo.summary')}
-                className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Full-stack developer specializing in MERN and Angular architectures."
+                {...register('summary')}
+                className="w-full p-2 mt-1 border border-gray-300 rounded-md"
+                placeholder="Full-stack software developer specializing in MERN, Angular, and PostgreSQL architectures."
               />
-              {errors.personalInfo?.summary && (
-                <p className="text-xs text-red-500 mt-1">
-                  {errors.personalInfo.summary.message}
-                </p>
-              )}
             </div>
           </div>
 
-          {/* Section: Work Experience */}
+          {/* Section: Experience */}
           <div className="flex items-center justify-between mt-8 mb-4 pb-2 border-b border-gray-200">
-            <h2 className="text-xl font-bold">Work Experience</h2>
+            <h2 className="text-xl font-bold">Experience</h2>
             <button
               type="button"
               onClick={() =>
                 appendExperience({
                   company: '',
                   role: '',
-                  location: '',
                   startDate: '',
                   endDate: '',
                   isCurrent: false,
@@ -396,90 +359,58 @@ export const CVBuilder = () => {
                     <label className="block text-xs font-medium text-gray-700">Company</label>
                     <input
                       {...register(`experience.${index}.company`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="Ennovate Lab"
                     />
-                    {errors.experience?.[index]?.company && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.experience[index].company.message}
-                      </p>
-                    )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-700">Role / Title</label>
                     <input
                       {...register(`experience.${index}.role`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Software Development Intern"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
+                      placeholder="Software Development Intern (SIWES)"
                     />
-                    {errors.experience?.[index]?.role && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.experience[index].role.message}
-                      </p>
-                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700">Location</label>
-                    <input
-                      {...register(`experience.${index}.location`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Oyo, Nigeria"
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-700">Start Date</label>
                     <input
                       {...register(`experience.${index}.startDate`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="Oct 2025"
                     />
-                    {errors.experience?.[index]?.startDate && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.experience[index].startDate.message}
-                      </p>
-                    )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-700">End Date</label>
                     <input
                       {...register(`experience.${index}.endDate`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="Dec 2025"
                     />
                   </div>
                 </div>
 
-                {/* Bullet Points */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700">
-                    Key Bullet Points (one per line)
+                    Bullet Points (one per line)
                   </label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     defaultValue={field.bulletPoints?.join('\n') || ''}
                     onChange={(e) => {
                       const lines = e.target.value
                         .split('\n')
                         .map((l) => l.trim())
                         .filter(Boolean);
-                      setValue(`experience.${index}.bulletPoints`, lines, {
-                        shouldValidate: true
-                      });
+                      setValue(`experience.${index}.bulletPoints`, lines);
                     }}
-                    className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                     placeholder="Developed and deployed full-stack web applications."
                   />
-                  {errors.experience?.[index]?.bulletPoints && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.experience[index].bulletPoints.message}
-                    </p>
-                  )}
                 </div>
               </div>
             ))}
@@ -528,28 +459,18 @@ export const CVBuilder = () => {
                     <label className="block text-xs font-medium text-gray-700">Institution</label>
                     <input
                       {...register(`education.${index}.institution`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="SQI College of ICT"
                     />
-                    {errors.education?.[index]?.institution && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.education[index].institution.message}
-                      </p>
-                    )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-700">Degree</label>
                     <input
                       {...register(`education.${index}.degree`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="National Diploma"
                     />
-                    {errors.education?.[index]?.degree && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.education[index].degree.message}
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -560,14 +481,9 @@ export const CVBuilder = () => {
                     </label>
                     <input
                       {...register(`education.${index}.fieldOfStudy`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="Computer Science"
                     />
-                    {errors.education?.[index]?.fieldOfStudy && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.education[index].fieldOfStudy.message}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -576,14 +492,9 @@ export const CVBuilder = () => {
                     </label>
                     <input
                       {...register(`education.${index}.graduationYear`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="2026"
                     />
-                    {errors.education?.[index]?.graduationYear && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.education[index].graduationYear.message}
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -633,21 +544,16 @@ export const CVBuilder = () => {
                     <label className="block text-xs font-medium text-gray-700">Project Name</label>
                     <input
                       {...register(`projects.${index}.name`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="ProTech"
                     />
-                    {errors.projects?.[index]?.name && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors.projects[index].name.message}
-                      </p>
-                    )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-700">Live URL</label>
                     <input
                       {...register(`projects.${index}.liveUrl`)}
-                      className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                       placeholder="https://protech.app"
                     />
                   </div>
@@ -658,14 +564,9 @@ export const CVBuilder = () => {
                   <textarea
                     rows={2}
                     {...register(`projects.${index}.description`)}
-                    className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                     placeholder="Automated web-based rent tracking platform"
                   />
-                  {errors.projects?.[index]?.description && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.projects[index].description.message}
-                    </p>
-                  )}
                 </div>
 
                 <div>
@@ -679,9 +580,9 @@ export const CVBuilder = () => {
                         .split(',')
                         .map((s) => s.trim())
                         .filter(Boolean);
-                      setValue(`projects.${index}.techStack`, tags, { shouldValidate: true });
+                      setValue(`projects.${index}.techStack`, tags);
                     }}
-                    className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2 mt-1 border border-gray-300 rounded-md"
                     placeholder="React, Node.js, PostgreSQL"
                   />
                 </div>
@@ -704,29 +605,26 @@ export const CVBuilder = () => {
                   .split(',')
                   .map((s) => s.trim())
                   .filter(Boolean);
-                setValue('skills', items, { shouldValidate: true });
+                setValue('skills', items);
               }}
-              className="w-full p-2 mt-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 mt-1 border border-gray-300 rounded-md"
               placeholder="React, Node.js, PostgreSQL, MERN Stack, Angular"
             />
-            {errors.skills && (
-              <p className="text-xs text-red-500 mt-1">{errors.skills.message}</p>
-            )}
           </div>
         </form>
       </div>
 
-      {/* RIGHT COLUMN: PDF Preview - 50% width */}
-      <div className="w-1/2 bg-gray-200 border-l border-gray-300 p-6 flex flex-col items-center justify-center">
-        {pdfBlobUrl && !isPdfLoading ? (
+      {/* Right Column (PDF Preview) */}
+      <div className="w-1/2 bg-gray-200 p-6 flex flex-col items-center justify-center border-l border-gray-300">
+        {pdfBlobUrl ? (
           <iframe
             src={pdfBlobUrl}
             className="w-full h-full rounded-lg shadow-xl border-0 bg-white"
             title="Resume PDF Preview"
           />
         ) : (
-          <div className="animate-pulse text-gray-500">
-            Generating ATS PDF...
+          <div className="animate-pulse text-gray-500 font-medium">
+            Generating PDF Preview...
           </div>
         )}
       </div>
