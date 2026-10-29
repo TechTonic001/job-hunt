@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react';
 import axiosClient from '../api/axiosClient.js';
 import JobCard from '../components/JobCard.jsx';
+import DispatchModal from '../components/DispatchModal.jsx';
 
 export const JobFeed = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedJob, setSelectedJob] = useState(null);
+
+  const openModal = (job) => {
+    setSelectedJob(job);
+  };
+
+  const closeModal = () => {
+    setSelectedJob(null);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -94,7 +104,11 @@ export const JobFeed = () => {
           {jobs.length > 0 ? (
             <div className="space-y-6">
               {jobs.map((job, index) => (
-                <JobCard key={job.id || job._id || index} job={job} />
+                <JobCard
+                  key={job.id || job._id || index}
+                  job={job}
+                  onDraftClick={openModal}
+                />
               ))}
             </div>
           ) : (
@@ -107,6 +121,13 @@ export const JobFeed = () => {
           )}
         </div>
       )}
+
+      {/* Dispatch Modal */}
+      <DispatchModal
+        isOpen={!!selectedJob}
+        onClose={closeModal}
+        job={selectedJob}
+      />
     </div>
   );
 };

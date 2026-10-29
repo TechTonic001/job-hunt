@@ -3,25 +3,22 @@ import { Loader2, Send, CheckCircle, X } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
 
 export const DispatchModal = ({ isOpen, onClose, job }) => {
-  const [status, setStatus] = useState('idle');
+  const [status, setStatus] = useState('drafting');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (!isOpen || !job) {
-      setStatus('idle');
-      setSubject('');
-      setBody('');
-      setErrorMessage('');
       return;
     }
 
     let isMounted = true;
-    setStatus('drafting');
-    setErrorMessage('');
 
     const fetchDraft = async () => {
+      setStatus('drafting');
+      setErrorMessage('');
+
       try {
         const response = await axiosClient.post('/api/jobs/draft', {
           jobId: job._id || job.id
