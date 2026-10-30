@@ -1,6 +1,7 @@
 /* oxlint-disable react/incompatible-library */
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
+import { Upload, Loader2 } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
 
 const DEFAULT_RESUME_VALUES = {
@@ -46,9 +47,11 @@ export const CVBuilder = () => {
   const [resumeId, setResumeId] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const { register, control, reset, watch, setValue } = useForm({
     defaultValues: DEFAULT_RESUME_VALUES,
@@ -218,24 +221,122 @@ export const CVBuilder = () => {
     };
   }, [watch, resumeId, fetchPdfPreview]);
 
+  // AI Import: parse a PDF resume and populate all form fields instantly
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('resume', file);
+
+      const response = await axiosClient.post('/api/resumes/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const d = response.data;
+
+      // Normalise the AI response before resetting the form
+      reset({
+        fullName: d.fullName || '',
+        personalInfo: {
+          email: d.personalInfo?.email || '',
+          phone: d.personalInfo?.phone || '',
+          location: d.personalInfo?.location || '',
+          github: d.personalInfo?.github || d.personalInfo?.githubUrl || '',
+          linkedin: d.personalInfo?.linkedin || d.personalInfo?.linkedinUrl || ''
+        },
+        summary: d.summary || '',
+        experience: Array.isArray(d.experience)
+          ? d.experience.map((exp) => ({
+              company: exp.company || '',
+              role: exp.role || '',
+              startDate: exp.startDate || '',
+              endDate: exp.endDate || '',
+              isCurrent: exp.isCurrent || false,
+              bulletPoints: Array.isArray(exp.bulletPoints) ? exp.bulletPoints : []
+            }))
+          : [],
+        education: Array.isArray(d.education)
+          ? d.education.map((edu) => ({
+              institution: edu.institution || '',
+              degree: edu.degree || '',
+              fieldOfStudy: edu.fieldOfStudy || '',
+              graduationYear: edu.graduationYear || ''
+            }))
+          : [],
+        projects: Array.isArray(d.projects)
+          ? d.projects.map((proj) => ({
+              name: proj.name || '',
+              description: proj.description || '',
+              techStack: Array.isArray(proj.techStack) ? proj.techStack : [],
+              liveUrl: proj.liveUrl || ''
+            }))
+          : [],
+        skills: Array.isArray(d.skills) ? d.skills : []
+      });
+    } catch (err) {
+      console.error('Import failed:', err);
+      alert(err?.response?.data?.error || 'Failed to import resume. Please try again.');
+    } finally {
+      setIsImporting(false);
+      // Reset the file input so the same file can be re-imported if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Left Column (Form) */}
       <div className="w-1/2 p-8 overflow-y-auto">
+        {/* Hidden file input — triggered by the Import button */}
+        <input
+          type="file"
+          accept=".pdf"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handleImport}
+        />
+
         <div className="flex items-center justify-between pb-4 mb-2 border-b border-gray-200">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">CV / Resume Builder</h1>
             <p className="text-xs text-gray-500">ATS Single-Column Format</p>
           </div>
-          {isSaving ? (
-            <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 animate-pulse">
-              Saving...
-            </span>
-          ) : (
-            <span className="text-xs font-medium text-emerald-600">
-              All changes saved
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {/* AI Import Button */}
+            <button
+              type="button"
+              id="import-resume-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Parsing PDF with AI...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5" />
+                  Import Resume
+                </>
+              )}
+            </button>
+
+            {/* Auto-save status */}
+            {isSaving ? (
+              <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 animate-pulse">
+                Saving...
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-emerald-600">
+                All changes saved
+              </span>
+            )}
+          </div>
         </div>
 
         <form onSubmit={(e) => e.preventDefault()} className="pb-12">
