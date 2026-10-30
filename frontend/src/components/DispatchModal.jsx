@@ -30,7 +30,9 @@ export const DispatchModal = ({ isOpen, onClose, job }) => {
 
       try {
         const response = await axiosClient.post('/api/jobs/draft', {
-          jobId: job._id || job.id
+          jobTitle: job.title,
+          companyName: job.company,
+          jobDescription: job.description || undefined
         });
 
         if (isMounted) {
@@ -76,9 +78,11 @@ export const DispatchModal = ({ isOpen, onClose, job }) => {
 
     try {
       await axiosClient.post('/api/jobs/dispatch', {
-        jobId: job._id || job.id,
         subject,
-        body
+        body,
+        applyEmail: job.applyEmail || job.apply_email || job.email || '',
+        jobTitle: job.title,
+        companyName: job.company
       });
 
       setStatus('success');
