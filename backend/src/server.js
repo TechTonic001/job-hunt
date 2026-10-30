@@ -17,6 +17,7 @@ import connectDB from './config/db.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
+import { startCronJobs } from './cron/jobFetcher.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -26,12 +27,17 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 app.use(helmet());
 
 
-// Cross-Origin Resource Sharing
+// Cross-Origin Resource Sharing — strict allowlist for production + local dev
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: [
+      process.env.FRONTEND_URL,       // e.g. https://job-assistant.vercel.app
+      'http://localhost:5173',          // Vite default
+      'http://localhost:3000'           // CRA / fallback
+    ].filter(Boolean),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
   })
 );
 
@@ -99,6 +105,9 @@ app.use((err, req, res, _next) => {
 
 // Connect to MongoDB before starting server
 await connectDB();
+
+// Start background cron jobs (nightly job matching engine)
+startCronJobs();
 
 // Start listening
 const server = app.listen(PORT, () => {
