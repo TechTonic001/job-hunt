@@ -1,8 +1,8 @@
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import multer from 'multer';
-import pdfParse from 'pdf-parse';
 import dotenv from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
@@ -19,6 +19,10 @@ import { validateResumePayload } from '../validators/resumeValidator.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+// pdf-parse is a CommonJS module — use createRequire to load it in ESM context
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 // Multer — keep file in memory, never touch disk
 const upload = multer({ storage: multer.memoryStorage() });
