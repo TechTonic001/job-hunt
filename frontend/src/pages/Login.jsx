@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase.js';
 
 export const Login = () => {
@@ -18,6 +18,25 @@ export const Login = () => {
     } catch (err) {
       console.error('Google Sign-In Error:', err);
       setError(err.message || 'Failed to sign in with Google. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+      if (isRegistering) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      navigate('/cv-builder');
+    } catch (err) {
+      console.error('Email Auth Error:', err);
+      setError(err.message || 'Failed to authenticate.');
     } finally {
       setLoading(false);
     }

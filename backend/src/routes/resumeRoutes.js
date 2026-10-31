@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
+// Removed erroneous Firebase auth import
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import pino from 'pino';
 import {
@@ -16,6 +17,7 @@ import {
 } from '../controllers/resumeController.js';
 import { protect } from '../middleware/auth.js';
 import { validateResumePayload } from '../validators/resumeValidator.js';
+const logger = pino();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +40,25 @@ const getGenAI = () => {
   }
   return _genAI;
 };
+
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+      if (isRegistering) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      navigate('/cv-builder');
+    } catch (err) {
+      console.error('Email Auth Error:', err);
+      setError(err.message || 'Failed to authenticate.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 const CANDIDATE_MODELS = [
   process.env.GEMINI_MODEL,
@@ -127,8 +148,9 @@ ${resumeText}`;
         });
 
         const result = await model.generateContent(prompt);
-        const text = (await result.response).text();
-        parsed = JSON.parse(text);
+        let responseText = result.response.text();
+        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        parsed = JSON.parse(responseText);
         break;
       } catch (_err) {
         // Rate-limited or model unavailable — try next
@@ -142,7 +164,7 @@ ${resumeText}`;
 
     return res.json(parsed);
   } catch (err) {
-    console.error('[/import] Error:', err.message);
+    logger.error('[/import] Error: ' + err.message);
     return res.status(500).json({ error: err.message || 'Failed to parse resume PDF.' });
   }
 });
