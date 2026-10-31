@@ -61,6 +61,44 @@ export const Login = () => {
           <div className="p-3 rounded-md bg-red-50 border border-red-200 text-xs text-red-600">
             {error}
           </div>
+
+          <div className="mt-4">
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? (isRegistering ? 'Registering...' : 'Signing in...') : (isRegistering ? 'Register' : 'Sign In')}
+              </button>
+            </form>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              {isRegistering ? 'Already have an account? ' : "Don't have an account? "}
+              <button
+                type="button"
+                onClick={() => setIsRegistering(!isRegistering)}
+                className="text-blue-600 hover:underline"
+              >
+                {isRegistering ? 'Sign In' : 'Register'}
+              </button>
+            </p>
+          </div>
         )}
 
         <div>

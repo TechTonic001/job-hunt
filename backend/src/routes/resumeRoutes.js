@@ -41,24 +41,7 @@ const getGenAI = () => {
   return _genAI;
 };
 
-  const handleEmailAuth = async (e) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      setError('');
-      if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
-      navigate('/cv-builder');
-    } catch (err) {
-      console.error('Email Auth Error:', err);
-      setError(err.message || 'Failed to authenticate.');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
 const CANDIDATE_MODELS = [
   process.env.GEMINI_MODEL,
