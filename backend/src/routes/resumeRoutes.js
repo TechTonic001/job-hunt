@@ -5,6 +5,7 @@ import express from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import pino from 'pino';
 import {
   createResume,
   getResumes,
