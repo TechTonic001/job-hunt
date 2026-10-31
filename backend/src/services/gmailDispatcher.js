@@ -1,44 +1,37 @@
 import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 /**
- * Dispatches an email (optionally with a PDF attachment) using Gmail SMTP.
+ * Dispatch an email via Gmail.
  * @param {string} toEmail - Recipient email address.
- * @param {string} subject - Email subject line.
- * @param {string} body - Plain‑text email body.
- * @param {Buffer|null} pdfBuffer - Optional PDF file buffer to attach.
- * @returns {Promise<boolean>} Resolves to true when the email is sent.
+ * @param {string} subject - Email subject.
+ * @param {string} body - Email body (HTML or plain text).
+ * @param {Buffer|null} pdfBuffer - Optional PDF attachment as Buffer.
  */
 export const dispatchEmail = async (toEmail, subject, body, pdfBuffer = null) => {
+  // Create a Nodemailer transporter using Gmail service.
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.GMAIL_USER, // Gmail address
-      pass: process.env.GMAIL_APP_PASSWORD // 16‑character App Password
-    }
+      pass: process.env.GMAIL_APP_PASSWORD, // 16‑character app password
+    },
   });
 
   const mailOptions = {
     from: process.env.GMAIL_USER,
     to: toEmail,
-    subject: subject,
-    text: body
+    subject,
+    // Prefer HTML if provided, else plain text.
+    html: body,
+    ...(pdfBuffer && {
+      attachments: [{
+        filename: 'resume.pdf',
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      }],
+    }),
   };
 
-  if (pdfBuffer) {
-    mailOptions.attachments = [
-      {
-        filename: 'Resume.pdf',
-        content: pdfBuffer,
-        contentType: 'application/pdf'
-      }
-    ];
-  }
-
+  // Send the email.
   await transporter.sendMail(mailOptions);
-  return true;
 };
-
-export default dispatchEmail;
