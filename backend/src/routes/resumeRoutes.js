@@ -165,7 +165,7 @@ ${resumeText}`;
     return res.json(parsed);
   } catch (err) {
     logger.error('[/import] Error: ' + err.message);
-    return res.status(500).json({ error: err.message || 'Failed to parse resume PDF.' });
+    return res.status(500).json({ error: 'Failed to parse PDF' });
   }
 });
 
