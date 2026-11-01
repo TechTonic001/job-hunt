@@ -1,7 +1,7 @@
 /* oxlint-disable react/incompatible-library */
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { Upload, Loader2 } from 'lucide-react';
+import { Upload, Loader2, Download } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
 
 const DEFAULT_RESUME_VALUES = {
@@ -285,6 +285,16 @@ export const CVBuilder = () => {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+  // Trigger download of the generated PDF preview
+  const handleDownload = () => {
+    if (!pdfBlobUrl) return;
+    const link = document.createElement('a');
+    link.href = pdfBlobUrl;
+    link.download = 'resume.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -325,6 +335,16 @@ export const CVBuilder = () => {
                 </>
               )}
             </button>
+            <button
+              type="button"
+              id="download-cv-btn"
+              onClick={handleDownload}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download CV
+            </button>
+            {/* Auto-save status */}
 
             {/* Auto-save status */}
             {isSaving ? (

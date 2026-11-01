@@ -1,4 +1,7 @@
+import Landing from './pages/Landing.jsx';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
@@ -14,6 +17,7 @@ function AppRoutes() {
       {currentUser && <Navbar />}
       <div className="flex-1">
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route
             path="/cv-builder"
