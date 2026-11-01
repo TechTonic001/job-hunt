@@ -8,6 +8,7 @@ const jobSchema = new mongoose.Schema({
   category: { type: String },
   description: { type: String },
   url: { type: String, required: true },
+  source: { type: String },
   applyEmail: { type: String },
   publishedAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
