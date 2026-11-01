@@ -18,12 +18,17 @@ export const getMatchedJobs = async (req, res, next) => {
       });
     }
 
-    // 2. Fetch jobs and filter for those with HR/Apply email addresses
-    const jobs = await fetchRemoteJobs();
-    const emailJobs = jobs.filter((job) => job.applyEmail !== null);
+    // 2. Ensure enough jobs in DB, scrape if needed
+    const jobCount = await Job.countDocuments();
+    if (jobCount < 5) {
+      await scrapeAndStoreJobs();
+    }
 
-    // 3. Slice to top 5 jobs to optimize LLM tokens and API latency
-    const topJobs = emailJobs.slice(0, 5);
+    // 3. Fetch latest 30 jobs, newest first
+    const jobs = await Job.find({}).sort({ createdAt: -1 }).limit(30).lean();
+
+    // Filter jobs that have an apply email address
+    const topJobs = jobs.filter(job => job.applyEmail !== null);
 
     // 4. Sequentially evaluate job matches to respect rate limits and prevent 503 concurrency spikes
     const matchedJobs = [];
