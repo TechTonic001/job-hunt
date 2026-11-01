@@ -1,6 +1,6 @@
 import Resume from '../models/Resume.js';
 import Job from '../models/Job.js';
-import { scrapeAllJobs as scrapeAndStoreJobs } from '../services/jobScraper.js';
+import { scrapeAndStoreJobs } from '../services/jobScraper.js';
 import { evaluateJobMatch } from '../services/aiMatcher.js';
 
 /**
