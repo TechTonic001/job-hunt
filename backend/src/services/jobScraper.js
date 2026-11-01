@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import Job from '../models/Job.js';
 import logger from '../utils/logger.js';
 
