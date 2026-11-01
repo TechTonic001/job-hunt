@@ -35,3 +35,18 @@ export const dispatchEmail = async (toEmail, subject, body, pdfBuffer = null) =>
   // Send the email.
   await transporter.sendMail(mailOptions);
 };
+
+/**
+ * Helper used by applicationController to send a job application email.
+ * Extracts needed fields from the draft and forwards to dispatchEmail.
+ * @param {object} user - The authenticated user object (currently not used but kept for future extensions).
+ * @param {object} draft - JobApplication draft containing applyEmail, coverEmailSubject, coverEmailBody.
+ * @param {Buffer|null} pdfBuffer - PDF buffer of the resume to attach.
+ */
+export const sendApplicationEmail = async (user, draft, pdfBuffer = null) => {
+  const toEmail = draft.applyEmail;
+  const subject = draft.coverEmailSubject;
+  const body = draft.coverEmailBody;
+  await dispatchEmail(toEmail, subject, body, pdfBuffer);
+};
+
