@@ -2,11 +2,11 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const variants = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500 shadow-sm',
-  secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-400 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
-  outline: 'border border-slate-300 bg-transparent text-slate-800 hover:bg-slate-100 focus-visible:ring-slate-400 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800',
-  ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-slate-400 dark:text-slate-300 dark:hover:bg-slate-800',
-  danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500 shadow-sm'
+  primary: 'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:ring-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.25)]',
+  secondary: 'border border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus-visible:ring-slate-400',
+  outline: 'border border-white/10 bg-transparent text-slate-200 hover:bg-white/5 focus-visible:ring-indigo-400',
+  ghost: 'bg-transparent text-slate-300 hover:bg-white/5 focus-visible:ring-indigo-400',
+  danger: 'bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-rose-400'
 };
 
 const sizes = {

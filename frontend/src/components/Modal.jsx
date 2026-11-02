@@ -49,7 +49,7 @@ export const Modal = ({
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
         className={cn(
-          'relative w-full rounded-2xl bg-white p-6 shadow-xl transition-all dark:bg-slate-900 border border-slate-200 dark:border-slate-800 z-10',
+          'relative z-10 w-full rounded-2xl border border-white/10 bg-white/5 p-6 text-gray-100 shadow-[0_0_30px_rgba(99,102,241,0.12)] backdrop-blur-xl transition-all',
           maxWidth,
           className
         )}
@@ -57,12 +57,12 @@ export const Modal = ({
         <div className="flex items-start justify-between pb-3">
           <div>
             {title && (
-              <h3 id="modal-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <h3 id="modal-title" className="text-lg font-semibold text-gray-100">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-gray-400">
                 {description}
               </p>
             )}
@@ -70,7 +70,7 @@ export const Modal = ({
           {onClose && (
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer"
+              className="cursor-pointer rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />

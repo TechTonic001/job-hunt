@@ -297,9 +297,9 @@ export const CVBuilder = () => {
   };
 
   return (
-    <div className="cv-builder-shell flex h-screen overflow-hidden">
+    <div className="cv-builder-shell flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden lg:flex-row">
       {/* Left Column (Form) */}
-      <div className="w-1/2 p-8 overflow-y-auto">
+      <div className="w-full overflow-y-auto p-5 sm:p-8 lg:w-1/2">
         {/* Hidden file input — triggered by the Import button */}
         <input
           type="file"
@@ -736,7 +736,7 @@ export const CVBuilder = () => {
       </div>
 
       {/* Right Column (PDF Preview) */}
-      <div className="w-1/2 bg-gray-200 p-6 flex flex-col items-center justify-center border-l border-gray-300">
+      <div className="hidden w-1/2 flex-col items-center justify-center border-l border-gray-300 bg-gray-200 p-6 lg:flex">
         {pdfBlobUrl ? (
           <iframe
             src={pdfBlobUrl}
