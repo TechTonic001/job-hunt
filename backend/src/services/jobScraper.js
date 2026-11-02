@@ -64,12 +64,14 @@ export const scrapeAndStoreJobs = async (searchField = 'software') => {
 
     // Upsert each job – count only when a fresh document is created
     for (const job of allJobs) {
+      const query = { externalId: job.externalId };
+      const { externalId, ...updateFields } = job;
       const result = await Job.findOneAndUpdate(
-        { externalId: job.externalId },
-        { $setOnInsert: job, $set: job },
-        { upsert: true, new: true, rawResult: true }
+        query,
+        { $set: updateFields },
+        { upsert: true, new: true, setDefaultsOnInsert: true, includeResultMetadata: true }
       );
-      // rawResult.lastErrorObject.updatedExisting === false indicates insert
+      // lastErrorObject.upserted indicates insert
       if (result?.lastErrorObject?.upserted) {
         insertedCount++;
       }
