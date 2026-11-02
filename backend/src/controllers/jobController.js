@@ -1,7 +1,6 @@
 import Resume from '../models/Resume.js';
-import Job from '../models/Job.js';
-import { scrapeAndStoreJobs } from '../services/jobScraper.js';
-import { evaluateJobMatches } from '../services/aiMatcher.js';
+import axios from 'axios';
+import { evaluateLiveJobMatches } from '../services/aiMatcher.js';
 
 /**
  * @desc    Fetch remote jobs and perform semantic matching against the user's resume using AI
@@ -10,41 +9,62 @@ import { evaluateJobMatches } from '../services/aiMatcher.js';
  */
 export const getMatchedJobs = async (req, res, next) => {
   try {
-    // 1. Fetch user resume
-    const resume = await Resume.findOne({ userId: req.user._id });
+    const resume = await Resume.findOne({ userId: req.user._id || req.user.uid });
     if (!resume) {
       return res.status(400).json({
         error: 'No resume found for user. Please create a resume first.'
       });
     }
 
-    // 2. Ensure enough jobs in DB, scrape if needed
-    const jobCount = await Job.countDocuments();
-    if (jobCount < 5) {
-      await scrapeAndStoreJobs();
+    const rapidApiKey = process.env.RAPIDAPI_KEY;
+    if (!rapidApiKey) {
+      return res.status(503).json({
+        error: 'Global job search is not configured. Set RAPIDAPI_KEY on the backend.'
+      });
     }
 
-    // 3. Fetch the 10 latest jobs, newest first
-    const jobs = await Job.find({}).sort({ createdAt: -1 }).limit(10).lean();
+    const experience = Array.isArray(resume.experience) ? resume.experience : [];
+    const skills = Array.isArray(resume.skills) ? resume.skills : [];
+    const jobTitle =
+      experience.find((item) => item.isCurrent && item.role)?.role ||
+      experience.find((item) => item.role)?.role ||
+      (resume.title && resume.title !== 'My Resume' ? resume.title : '') ||
+      skills.slice(0, 3).join(' ') ||
+      'software developer';
 
-    // Filter jobs that have an apply email address
-    const topJobs = jobs.filter(job => job.applyEmail !== null);
+    let response;
+    try {
+      response = await axios.get('https://jsearch.p.rapidapi.com/search', {
+        timeout: 15000,
+        params: {
+          query: `${jobTitle} remote`,
+          page: '1',
+          num_pages: '1'
+        },
+        headers: {
+          'x-rapidapi-key': rapidApiKey,
+          'x-rapidapi-host': 'jsearch.p.rapidapi.com'
+        }
+      });
+    } catch (error) {
+      error.status = 502;
+      error.message = 'Global job search provider request failed.';
+      return next(error);
+    }
 
-    const jobsForMatching = topJobs.map((job) => ({
-      ...job,
-      description: typeof job.description === 'string'
-        ? job.description.slice(0, 800)
-        : ''
-    }));
+    const jobs = (Array.isArray(response.data?.data) ? response.data.data : [])
+      .slice(0, 15)
+      .map((job) => ({
+        job_title: job.job_title || '',
+        employer_name: job.employer_name || '',
+        job_description: typeof job.job_description === 'string'
+          ? job.job_description.slice(0, 800)
+          : '',
+        job_apply_link: job.job_apply_link || ''
+      }))
+      .filter((job) => job.job_apply_link);
 
-    // Evaluate the bounded job list in one Gemini request to avoid serial calls.
-    const matchResults = await evaluateJobMatches(resume, jobsForMatching);
-    const matchedJobs = topJobs.map((job, index) => ({
-      ...job,
-      ...matchResults[index],
-      match: matchResults[index]
-    }));
-
+    const matchedJobs = await evaluateLiveJobMatches(skills, jobs);
     return res.status(200).json(matchedJobs);
   } catch (error) {
     next(error);

@@ -1,2 +1,53 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
+
+@layer base {
+  body {
+    @apply bg-[#09090b] text-gray-200 antialiased;
+  }
+}
+
+.cv-builder-shell {
+  background: #09090b !important;
+  color: #e5e7eb;
+}
+
+.cv-builder-shell div.bg-white {
+  background: rgb(255 255 255 / 5%) !important;
+  border-color: rgb(255 255 255 / 10%);
+  backdrop-filter: blur(12px);
+}
+
+.cv-builder-shell div.bg-gray-200 {
+  background: #111116 !important;
+  border-color: rgb(255 255 255 / 10%);
+}
+
+.cv-builder-shell .text-gray-900,
+.cv-builder-shell .text-gray-800,
+.cv-builder-shell .text-gray-700 {
+  color: #f3f4f6 !important;
+}
+
+.cv-builder-shell .text-gray-600,
+.cv-builder-shell .text-gray-500,
+.cv-builder-shell .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+.cv-builder-shell .border-gray-300,
+.cv-builder-shell .border-gray-200 {
+  border-color: rgb(255 255 255 / 12%) !important;
+}
+
+.cv-builder-shell input:not([type='file']),
+.cv-builder-shell textarea {
+  color: #f3f4f6;
+  background: rgb(255 255 255 / 5%);
+  border-color: rgb(255 255 255 / 15%);
+}
+
+.cv-builder-shell input::placeholder,
+.cv-builder-shell textarea::placeholder {
+  color: #6b7280;
+}

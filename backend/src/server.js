@@ -17,7 +17,6 @@ import connectDB from './config/db.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
-import { startCronJobs } from './cron/jobFetcher.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
@@ -101,9 +100,6 @@ app.use((err, req, res, _next) => {
 
 // Connect to MongoDB before starting server
 await connectDB();
-
-// Start background cron jobs (nightly job matching engine)
-startCronJobs();
 
 // Start listening
 const server = app.listen(PORT, () => {

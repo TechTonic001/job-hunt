@@ -297,7 +297,7 @@ export const CVBuilder = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="cv-builder-shell flex h-screen overflow-hidden">
       {/* Left Column (Form) */}
       <div className="w-1/2 p-8 overflow-y-auto">
         {/* Hidden file input — triggered by the Import button */}

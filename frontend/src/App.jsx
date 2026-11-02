@@ -13,7 +13,7 @@ function AppRoutes() {
   const { currentUser } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#09090b] text-gray-200 flex flex-col">
       {currentUser && <Navbar />}
       <div className="flex-1">
         <Routes>
