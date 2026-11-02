@@ -40,6 +40,26 @@
   border-color: rgb(255 255 255 / 12%) !important;
 }
 
+.cv-builder-shell .bg-gray-100,
+.cv-builder-shell .bg-indigo-50,
+.cv-builder-shell .bg-green-50,
+.cv-builder-shell .bg-amber-50 {
+  background: rgb(255 255 255 / 5%) !important;
+}
+
+.cv-builder-shell .text-indigo-700 {
+  color: #a5b4fc !important;
+}
+
+.cv-builder-shell .text-green-700,
+.cv-builder-shell .text-emerald-600 {
+  color: #6ee7b7 !important;
+}
+
+.cv-builder-shell .text-amber-600 {
+  color: #fcd34d !important;
+}
+
 .cv-builder-shell input:not([type='file']),
 .cv-builder-shell textarea {
   color: #f3f4f6;

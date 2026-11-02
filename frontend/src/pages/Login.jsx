@@ -46,19 +46,20 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 space-y-6 border border-gray-200">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(79,70,229,0.18),transparent_55%)]" />
+      <div className="relative w-full max-w-md space-y-6 rounded-2xl border border-white/10 bg-white/5 p-8 shadow-[0_0_40px_rgba(99,102,241,0.08)] backdrop-blur-xl">
         <div className="space-y-2">
-          <h2 className="text-3xl font-extrabold text-center text-gray-900">
+          <h2 className="text-center text-3xl font-extrabold text-gray-100">
             ProTech Job Assistant
           </h2>
-          <p className="text-center text-gray-500">
+          <p className="text-center text-gray-400">
             Sign in to build your CV and match with jobs.
           </p>
         </div>
 
         {error && (
-  <div className="p-3 rounded-md bg-red-50 border border-red-200 text-xs text-red-600">
+  <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">
     {error}
   </div>
 )}
@@ -70,7 +71,7 @@ export const Login = () => {
       value={email}
       onChange={(e) => setEmail(e.target.value)}
       required
-      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
     />
     <input
       type="password"
@@ -78,22 +79,22 @@ export const Login = () => {
       value={password}
       onChange={(e) => setPassword(e.target.value)}
       required
-      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
     />
     <button
       type="submit"
       disabled={loading}
-      className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      className="w-full rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
     >
       {loading ? (isRegistering ? 'Registering...' : 'Signing in...') : (isRegistering ? 'Register' : 'Sign In')}
     </button>
   </form>
-  <p className="mt-2 text-center text-sm text-gray-600">
+  <p className="mt-2 text-center text-sm text-gray-400">
     {isRegistering ? 'Already have an account? ' : "Don't have an account? "}
     <button
       type="button"
       onClick={() => setIsRegistering(!isRegistering)}
-      className="text-blue-600 hover:underline"
+      className="text-indigo-300 hover:text-cyan-300 hover:underline"
     >
       {isRegistering ? 'Sign In' : 'Register'}
     </button>
@@ -105,7 +106,7 @@ export const Login = () => {
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex w-full cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-gray-200 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg className="w-5 h-5 mr-3 shrink-0" viewBox="0 0 24 24">
               <path

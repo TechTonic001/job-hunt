@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosClient from '../api/axiosClient.js';
 import JobCard from '../components/JobCard.jsx';
-import DispatchModal from '../components/DispatchModal.jsx';
 
 const extractErrorMessage = (err, fallbackMessage) => {
   const data = err?.response?.data;
@@ -16,15 +15,6 @@ export const JobFeed = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedJob, setSelectedJob] = useState(null);
-
-  const openModal = (job) => {
-    setSelectedJob(job);
-  };
-
-  const closeModal = () => {
-    setSelectedJob(null);
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -39,105 +29,69 @@ export const JobFeed = () => {
         }
       } catch (err) {
         if (isMounted) {
-          const message = extractErrorMessage(
+          setError(extractErrorMessage(
             err,
-            'Failed to fetch matching jobs. Please ensure you have created a CV.'
-          );
-          setError(message);
+            'Failed to search live jobs. Please try again.'
+          ));
         }
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchMatchedJobs();
-
     return () => {
       isMounted = false;
     };
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <h1 className="text-2xl font-bold mb-2">Recommended Roles</h1>
+    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <header className="mb-8">
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-cyan-300">Live search</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-100">Recommended roles</h1>
+        <p className="mt-2 text-gray-400">Global opportunities selected for your resume and skills.</p>
+      </header>
 
-      {/* Loading State */}
       {loading && (
-        <div className="mt-4 space-y-6">
-          <p className="text-gray-600 font-medium">
-            AI is analyzing active job listings against your CV. This takes about 5-10 seconds...
-          </p>
-
-          <div className="space-y-4">
-            {[1, 2, 3].map((placeholder) => (
-              <div
-                key={placeholder}
-                className="bg-white shadow-md rounded-xl p-6 border border-gray-200 animate-pulse space-y-4"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2 w-2/3">
-                    <div className="h-6 bg-gray-200 rounded w-3/4" />
-                    <div className="h-4 bg-gray-200 rounded w-1/2" />
-                  </div>
-                  <div className="h-6 bg-gray-200 rounded-full w-24 shrink-0" />
-                </div>
-                <div className="h-4 bg-gray-200 rounded w-full" />
-                <div className="flex gap-2 pt-2">
-                  <div className="h-6 bg-gray-200 rounded-full w-20" />
-                  <div className="h-6 bg-gray-200 rounded-full w-24" />
-                  <div className="h-6 bg-gray-200 rounded-full w-16" />
-                </div>
-                <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
-                  <div className="h-4 bg-gray-200 rounded w-40" />
-                  <div className="h-9 bg-gray-200 rounded-lg w-32 shrink-0" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <section className="space-y-4" aria-label="Loading job matches">
+          <p className="text-gray-400">Searching global listings and matching them to your CV...</p>
+          {[1, 2, 3].map((placeholder) => (
+            <div
+              key={placeholder}
+              className="animate-pulse space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6"
+            >
+              <div className="h-6 w-2/3 rounded bg-white/10" />
+              <div className="h-4 w-1/3 rounded bg-white/10" />
+              <div className="h-4 w-full rounded bg-white/10" />
+            </div>
+          ))}
+        </section>
       )}
 
-      {/* Error State */}
       {!loading && error && (
-        <div className="mt-4 p-4 rounded-lg bg-red-50 border border-red-200 text-red-600 font-medium">
-          {typeof error === 'string' ? error : error?.message || 'An error occurred'}
+        <div role="alert" className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-rose-300">
+          {error}
         </div>
       )}
 
-      {/* Success State */}
       {!loading && !error && (
-        <div className="mt-6">
-          {jobs.length > 0 ? (
-            <div className="space-y-6">
-              {jobs.map((job, index) => (
-                <JobCard
-                  key={job.id || job._id || index}
-                  job={job}
-                  onDraftClick={openModal}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
-              <p className="text-gray-600 text-lg font-medium">No matching jobs found</p>
-              <p className="text-gray-400 text-sm mt-1">
-                Try updating your CV skills or checking back later for new listings.
-              </p>
-            </div>
-          )}
-        </div>
+        jobs.length > 0 ? (
+          <section className="space-y-5">
+            {jobs.map((job, index) => (
+              <JobCard key={job.job_apply_link || index} job={job} />
+            ))}
+          </section>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-md">
+            <p className="text-lg font-medium text-gray-200">No strong matches found</p>
+            <p className="mt-2 text-sm text-gray-400">
+              Try updating your CV skills or check back for new opportunities.
+            </p>
+          </div>
+        )
       )}
-
-      {/* Dispatch Modal */}
-      <DispatchModal
-        isOpen={!!selectedJob}
-        onClose={closeModal}
-        job={selectedJob}
-      />
-    </div>
+    </main>
   );
 };
 
