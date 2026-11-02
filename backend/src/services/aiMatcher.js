@@ -52,6 +52,80 @@ const generateHeuristicMatch = (resumeData, jobDescriptionText) => {
   };
 };
 
+const normalizeMatchResult = (result) => {
+  const summary = typeof result?.briefSummary === 'string'
+    ? result.briefSummary.trim().split(/\s+/).slice(0, 14).join(' ')
+    : '';
+
+  return {
+    matchScore: typeof result?.matchScore === 'number' ? result.matchScore : 75,
+    matchingSkills: Array.isArray(result?.matchingSkills) ? result.matchingSkills : [],
+    missingSkills: Array.isArray(result?.missingSkills) ? result.missingSkills : [],
+    briefSummary: summary
+  };
+};
+
+const getCandidateModels = () => [
+  process.env.GEMINI_MODEL,
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.8-flash'
+].filter(Boolean);
+
+/**
+ * Evaluates a bounded list of jobs against a resume in one Gemini request.
+ * @param {Object} resumeData - Structured resume data JSON
+ * @param {Array<Object>} jobs - Jobs with descriptions limited by the caller
+ * @returns {Promise<Array<{ matchScore: number, matchingSkills: string[], missingSkills: string[], briefSummary: string }>>}
+ */
+export const evaluateJobMatches = async (resumeData, jobs) => {
+  if (jobs.length === 0) return [];
+
+  const fallbackResults = jobs.map((job) =>
+    generateHeuristicMatch(resumeData, job.description)
+  );
+
+  try {
+    const client = getGenAI();
+    const jobDescriptions = jobs.map((job, index) => ({
+      index,
+      title: job.title,
+      company: job.company,
+      description: job.description
+    }));
+    const prompt = `You are a ruthless technical recruiter. I am providing a user CV and a JSON array of ${jobs.length} job descriptions. Return a JSON array matching the exact length (${jobs.length}) scoring each job against the CV. Each item must have exactly these keys: \`matchScore\` (number 0-100), \`matchingSkills\` (array of strings), \`missingSkills\` (array of strings), and \`briefSummary\` (string under 15 words). Keep the results in the same order as the input. Process this as fast as possible. CV: ${JSON.stringify(
+      resumeData
+    )}. Jobs: ${JSON.stringify(jobDescriptions)}.`;
+
+    for (const modelName of getCandidateModels()) {
+      try {
+        const model = client.getGenerativeModel({
+          model: modelName,
+          generationConfig: { responseMimeType: 'application/json' }
+        });
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const parsed = JSON.parse(response.text());
+
+        if (!Array.isArray(parsed) || parsed.length !== jobs.length) {
+          throw new Error('Gemini returned an unexpected number of job matches.');
+        }
+
+        return parsed.map(normalizeMatchResult);
+      } catch (_err) {
+        // Try the next model, then fall back to heuristic matches.
+        continue;
+      }
+    }
+  } catch (_err) {
+    // Fall back to heuristic matches if Gemini is unavailable.
+  }
+
+  return fallbackResults;
+};
+
 /**
  * Evaluates candidate resume against job description using Gemini AI semantic matching
  * with automatic model fallback and graceful heuristic backup
@@ -65,15 +139,7 @@ export const evaluateJobMatch = async (resumeData, jobDescriptionText) => {
     resumeData
   )}. Job: ${jobDescriptionText}.`;
 
-  const candidateModels = [
-    process.env.GEMINI_MODEL,
-    'gemini-3.1-flash-lite',
-    'gemini-3.5-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-3.8-flash'
-  ].filter(Boolean);
-
-  for (const modelName of candidateModels) {
+  for (const modelName of getCandidateModels()) {
     try {
       const model = client.getGenerativeModel({
         model: modelName,

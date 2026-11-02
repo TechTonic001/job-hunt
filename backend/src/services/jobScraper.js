@@ -69,7 +69,7 @@ export const scrapeAndStoreJobs = async (searchField = 'software') => {
       const result = await Job.findOneAndUpdate(
         query,
         { $set: updateFields },
-        { upsert: true, new: true, setDefaultsOnInsert: true, includeResultMetadata: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, includeResultMetadata: true }
       );
       // lastErrorObject.upserted indicates insert
       if (result?.lastErrorObject?.upserted) {
