@@ -25,7 +25,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // pdf-parse is a CommonJS module — use createRequire to load it in ESM context
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 
 // Multer — keep file in memory, never touch disk
 const upload = multer({ storage: multer.memoryStorage() });
@@ -68,7 +68,13 @@ router.post('/import', protect, upload.single('resume'), async (req, res) => {
     }
 
     // 1. Extract raw text from the PDF buffer
-    const pdfData = await pdfParse(req.file.buffer);
+    const parser = new PDFParse({ data: req.file.buffer });
+    let pdfData;
+    try {
+      pdfData = await parser.getText();
+    } finally {
+      await parser.destroy();
+    }
     const resumeText = pdfData.text?.trim();
 
     if (!resumeText) {
@@ -147,7 +153,7 @@ ${resumeText}`;
 
     return res.json(parsed);
   } catch (err) {
-    logger.error('[/import] Error: ' + err.message);
+    logger.error({ err }, '[/import] Error');
     return res.status(500).json({ error: 'Failed to parse PDF' });
   }
 });
@@ -159,5 +165,4 @@ router
   .delete(protect, deleteResume);
 
 export default router;
-
 
