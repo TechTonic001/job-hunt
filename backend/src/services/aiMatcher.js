@@ -2,6 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
+import logger from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,31 @@ const generateHeuristicMatch = (resumeData, jobDescriptionText) => {
   };
 };
 
+const generateHeuristicLiveJobMatches = (skills, jobs) => {
+  const resumeSkills = skills
+    .map((skill) => (typeof skill === 'string' ? skill : skill?.name || ''))
+    .filter(Boolean);
+
+  if (resumeSkills.length === 0) return [];
+
+  return jobs
+    .map((job) => {
+      const description = `${job.job_title} ${job.employer_name} ${job.job_description}`.toLowerCase();
+      const matchingSkills = resumeSkills.filter((skill) => description.includes(skill.toLowerCase()));
+      const missingSkills = resumeSkills.filter((skill) => !description.includes(skill.toLowerCase()));
+      const matchScore = Math.round((matchingSkills.length / resumeSkills.length) * 100);
+
+      return {
+        ...job,
+        matchScore,
+        briefSummary: 'Skill-based match; AI scoring is temporarily unavailable.',
+        matchingSkills: matchingSkills.slice(0, 5),
+        missingSkills: missingSkills.slice(0, 3)
+      };
+    })
+    .filter((job) => job.matchScore >= 60);
+};
+
 /**
  * Scores live jobs against resume skills and retains only verified source jobs
  * meeting the requested match threshold.
@@ -60,18 +86,34 @@ export const evaluateLiveJobMatches = async (skills, jobs) => {
   if (jobs.length === 0) return [];
 
   const client = getGenAI();
-  const model = client.getGenerativeModel({
-    model: 'gemini-3.8-flash',
-    generationConfig: { responseMimeType: 'application/json' }
-  });
   const prompt = `You are an AI matching engine. Score these ${jobs.length} jobs against the user's CV skills. Return a JSON array strictly containing only the jobs with a matchScore >= 60. Each result must include matchScore, briefSummary (max 10 words), missingSkills, and the original job_apply_link. Preserve the exact job_apply_link from the input. Jobs: ${JSON.stringify(
     jobs
   )}. CV skills: ${JSON.stringify(skills)}.`;
-  const result = await model.generateContent(prompt);
-  const parsed = JSON.parse((await result.response).text());
+  const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+  let parsed;
+  let lastError;
+
+  for (const modelName of candidateModels) {
+    try {
+      const model = client.getGenerativeModel({
+        model: modelName,
+        generationConfig: { responseMimeType: 'application/json' }
+      });
+      const result = await model.generateContent(prompt);
+      parsed = JSON.parse((await result.response).text());
+
+      if (!Array.isArray(parsed)) {
+        throw new Error(`Gemini model ${modelName} returned an invalid job match response.`);
+      }
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
 
   if (!Array.isArray(parsed)) {
-    throw new Error('Gemini returned an invalid job match response.');
+    logger.warn({ err: lastError }, 'Gemini unavailable for live job matching; using skill-based matches');
+    return generateHeuristicLiveJobMatches(skills, jobs);
   }
 
   const jobsByLink = new Map(jobs.map((job) => [job.job_apply_link, job]));
