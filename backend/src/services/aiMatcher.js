@@ -61,7 +61,7 @@ export const evaluateLiveJobMatches = async (skills, jobs) => {
 
   const client = getGenAI();
   const model = client.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-1.5-flash-latest',
     generationConfig: { responseMimeType: 'application/json' }
   });
   const prompt = `You are an AI matching engine. Score these ${jobs.length} jobs against the user's CV skills. Return a JSON array strictly containing only the jobs with a matchScore >= 60. Each result must include matchScore, briefSummary (max 10 words), missingSkills, and the original job_apply_link. Preserve the exact job_apply_link from the input. Jobs: ${JSON.stringify(
