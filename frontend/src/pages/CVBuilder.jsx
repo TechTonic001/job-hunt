@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { Upload, Loader2, Download } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
+import resumeSchema from '../validators/resumeSchema.js';
 
 const DEFAULT_RESUME_VALUES = {
   fullName: 'Amoo Halleluyah Olamilekan',
@@ -46,7 +47,7 @@ const DEFAULT_RESUME_VALUES = {
 export const CVBuilder = () => {
   const [resumeId, setResumeId] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('saved');
   const [isImporting, setIsImporting] = useState(false);
 
   const isInitialLoad = useRef(true);
@@ -185,32 +186,38 @@ export const CVBuilder = () => {
       }
 
       clearTimeout(saveTimeoutRef.current);
+      setSaveStatus('pending');
       saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          setIsSaving(true);
-          const payload = {
-            title: 'My Resume',
-            personalInfo: {
-              fullName: formData.fullName || formData.personalInfo?.fullName || 'Amoo Halleluyah Olamilekan',
-              email: formData.personalInfo?.email || 'test@example.com',
-              phone: formData.personalInfo?.phone || '+2340000000000',
-              location: formData.personalInfo?.location || 'Ogbomoso, Oyo, Nigeria',
-              linkedinUrl: formData.personalInfo?.linkedin || '',
-              githubUrl: formData.personalInfo?.github || '',
-              summary: formData.summary || formData.personalInfo?.summary || ''
-            },
-            experience: Array.isArray(formData.experience) ? formData.experience : [],
-            education: Array.isArray(formData.education) ? formData.education : [],
-            projects: Array.isArray(formData.projects) ? formData.projects : [],
-            skills: Array.isArray(formData.skills) ? formData.skills : []
-          };
+        const payload = {
+          title: 'My Resume',
+          personalInfo: {
+            fullName: formData.fullName || formData.personalInfo?.fullName || 'Amoo Halleluyah Olamilekan',
+            email: formData.personalInfo?.email || 'test@example.com',
+            phone: formData.personalInfo?.phone || '+2340000000000',
+            location: formData.personalInfo?.location || 'Ogbomoso, Oyo, Nigeria',
+            linkedinUrl: formData.personalInfo?.linkedin || '',
+            githubUrl: formData.personalInfo?.github || '',
+            summary: formData.summary || formData.personalInfo?.summary || ''
+          },
+          experience: Array.isArray(formData.experience) ? formData.experience : [],
+          education: Array.isArray(formData.education) ? formData.education : [],
+          projects: Array.isArray(formData.projects) ? formData.projects : [],
+          skills: Array.isArray(formData.skills) ? formData.skills : []
+        };
 
+        if (!resumeSchema.safeParse(payload).success) {
+          setSaveStatus('incomplete');
+          return;
+        }
+
+        setSaveStatus('saving');
+        try {
           await axiosClient.put(`/api/resumes/${resumeId}`, payload);
-          setIsSaving(false);
+          setSaveStatus('saved');
           fetchPdfPreview(resumeId);
         } catch (err) {
           console.error('Auto-save error:', err);
-          setIsSaving(false);
+          setSaveStatus('error');
         }
       }, 1000);
     });
@@ -347,9 +354,17 @@ export const CVBuilder = () => {
             {/* Auto-save status */}
 
             {/* Auto-save status */}
-            {isSaving ? (
+            {saveStatus === 'saving' || saveStatus === 'pending' ? (
               <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 animate-pulse">
-                Saving...
+                {saveStatus === 'saving' ? 'Saving...' : 'Unsaved changes'}
+              </span>
+            ) : saveStatus === 'incomplete' ? (
+              <span className="text-xs font-medium text-amber-700" role="status">
+                Complete required fields to save
+              </span>
+            ) : saveStatus === 'error' ? (
+              <span className="text-xs font-medium text-rose-600" role="alert">
+                Save failed
               </span>
             ) : (
               <span className="text-xs font-medium text-emerald-600">
