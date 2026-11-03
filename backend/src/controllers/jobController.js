@@ -16,51 +16,28 @@ export const getMatchedJobs = async (req, res, next) => {
       });
     }
 
-    const rapidApiKey = process.env.RAPIDAPI_KEY;
-    if (!rapidApiKey) {
-      return res.status(503).json({
-        error: 'Global job search is not configured. Set RAPIDAPI_KEY on the backend.'
-      });
-    }
-
-    const experience = Array.isArray(resume.experience) ? resume.experience : [];
     const skills = Array.isArray(resume.skills) ? resume.skills : [];
-    const jobTitle =
-      experience.find((item) => item.isCurrent && item.role)?.role ||
-      experience.find((item) => item.role)?.role ||
-      (resume.title && resume.title !== 'My Resume' ? resume.title : '') ||
-      skills.slice(0, 3).join(' ') ||
-      'software developer';
 
     let response;
     try {
-      response = await axios.get('https://jsearch.p.rapidapi.com/search', {
-        timeout: 15000,
-        params: {
-          query: `${jobTitle} remote`,
-          page: '1',
-          num_pages: '1'
-        },
-        headers: {
-          'x-rapidapi-key': rapidApiKey,
-          'x-rapidapi-host': 'jsearch.p.rapidapi.com'
-        }
+      response = await axios.get('https://www.arbeitnow.com/api/job-board-api', {
+        timeout: 15000
       });
     } catch (error) {
       error.status = 502;
-      error.message = 'Global job search provider request failed.';
+      error.message = 'Job search provider request failed.';
       return next(error);
     }
 
-    const jobs = (Array.isArray(response.data?.data) ? response.data.data : [])
-      .slice(0, 15)
+    const topJobs = Array.isArray(response.data?.data) ? response.data.data.slice(0, 15) : [];
+    const jobs = topJobs
       .map((job) => ({
-        job_title: job.job_title || '',
-        employer_name: job.employer_name || '',
-        job_description: typeof job.job_description === 'string'
-          ? job.job_description.slice(0, 800)
+        job_title: job.title || '',
+        employer_name: job.company_name || job.company || '',
+        job_description: typeof job.description === 'string'
+          ? job.description.replace(/<[^>]*>?/gm, '').substring(0, 800)
           : '',
-        job_apply_link: job.job_apply_link || ''
+        job_apply_link: job.url || ''
       }))
       .filter((job) => job.job_apply_link);
 
