@@ -78,6 +78,9 @@ export const saveResume = async (req, res, next) => {
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required.' });
     }
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'CV data must be an object.' });
+    }
 
     const { personalInfo = {}, summary = '', skills = [], experience = '', education = '' } = req.body;
     if (!personalInfo || typeof personalInfo !== 'object' || Array.isArray(personalInfo)) {

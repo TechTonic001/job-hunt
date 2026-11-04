@@ -3,11 +3,10 @@ import { ArrowUpRight, Briefcase, CheckCircle2, Clipboard, Loader2, MapPin, X, X
 import axiosClient from '../api/axiosClient.js';
 
 export const JobCard = ({ job }) => {
-  const [coverLetter, setCoverLetter] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [coverLetterText, setCoverLetterText] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const title = job?.job_title || job?.title || 'Untitled role';
   const company = job?.employer_name || job?.company || 'Company not listed';
@@ -18,11 +17,10 @@ export const JobCard = ({ job }) => {
   const missingSkills = Array.isArray(job?.missingSkills) ? job.missingSkills : [];
 
   const handleGenerateCoverLetter = async () => {
-    setShowModal(true);
+    setIsModalOpen(true);
     setIsGenerating(true);
-    setCoverLetter('');
+    setCoverLetterText('');
     setErrorMessage('');
-    setCopied(false);
 
     try {
       const { data } = await axiosClient.post('/api/jobs/cover-letter', {
@@ -30,7 +28,7 @@ export const JobCard = ({ job }) => {
         employer_name: company,
         job_description: job?.job_description || job?.description || ''
       });
-      setCoverLetter(data.coverLetter);
+      setCoverLetterText(data.coverLetter);
     } catch (error) {
       const responseError = error?.response?.data?.error;
       setErrorMessage(
@@ -45,9 +43,8 @@ export const JobCard = ({ job }) => {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(coverLetter);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(coverLetterText);
+      window.alert('Cover letter copied to clipboard.');
     } catch (error) {
       setErrorMessage(error?.message || 'Unable to copy the cover letter.');
     }
@@ -107,7 +104,7 @@ export const JobCard = ({ job }) => {
           onClick={handleGenerateCoverLetter}
           className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/30 px-4 py-2 font-medium text-indigo-400 transition-colors hover:bg-indigo-500/10"
         >
-          Generate AI Cover Letter
+          Generate Cover Letter
         </button>
         {applyLink && (
           <a
@@ -122,16 +119,16 @@ export const JobCard = ({ job }) => {
         )}
       </div>
 
-      {showModal && (
+      {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => setShowModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setIsModalOpen(false)}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="cover-letter-title"
-            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#18181b] text-gray-200 shadow-2xl"
+            className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-y-auto rounded-xl border border-white/10 bg-[#18181b] p-6 text-gray-200 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <header className="flex items-start justify-between border-b border-white/10 px-6 py-4">
@@ -143,7 +140,7 @@ export const JobCard = ({ job }) => {
               </div>
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={() => setIsModalOpen(false)}
                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
                 aria-label="Close cover letter"
               >
@@ -155,12 +152,12 @@ export const JobCard = ({ job }) => {
               {isGenerating ? (
                 <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-gray-400">
                   <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
-                  <p>Writing a tailored cover letter...</p>
+                  <p className="animate-pulse">Generating AI Cover Letter...</p>
                 </div>
               ) : errorMessage ? (
                 <p role="alert" className="text-sm text-rose-300">{errorMessage}</p>
               ) : (
-                <p className="whitespace-pre-wrap text-sm leading-7 text-gray-200">{coverLetter}</p>
+                <p className="whitespace-pre-wrap text-sm leading-7 text-gray-200">{coverLetterText}</p>
               )}
             </div>
 
@@ -168,11 +165,11 @@ export const JobCard = ({ job }) => {
               <button
                 type="button"
                 onClick={handleCopy}
-                disabled={!coverLetter || isGenerating}
+                disabled={!coverLetterText || isGenerating}
                 className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/30 px-4 py-2 font-medium text-indigo-300 transition-colors hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Clipboard className="h-4 w-4" />
-                {copied ? 'Copied!' : 'Copy to Clipboard'}
+                Copy to Clipboard
               </button>
             </footer>
           </section>
