@@ -11,10 +11,11 @@ export const generateCoverLetter = async (req, res, next) => {
       return res.status(400).json({ error: 'job_title and employer_name are required.' });
     }
 
-    const resume = await Resume.findOne({ userId: req.user._id || req.user.uid });
-    if (!resume) {
+    const userId = req.user?.id || req.user?._id || req.user?.uid;
+    const cv = await Resume.findOne({ userId });
+    if (!cv) {
       return res.status(404).json({
-        error: 'No resume found for user. Please create a resume first.'
+        error: 'No CV found for user. Please complete your CV first.'
       });
     }
 
@@ -25,17 +26,10 @@ export const generateCoverLetter = async (req, res, next) => {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const prompt = `You are an expert technical recruiter and career coach. I am providing a candidate's CV data and a specific job description for ${jobTitle} at ${employerName}. Write a highly tailored, compelling 3-paragraph cover letter demonstrating why this candidate's specific engineering skills perfectly align with the job requirements. Do not use generic [Insert Name Here] placeholders; use the real data. Output only the plain cover letter text, no markdown formatting.
-
-Candidate CV data:
-${JSON.stringify(resume.toObject())}
-
-Job description:
-${jobDescription || `${jobTitle} at ${employerName}`}`;
+    const prompt = `You are an expert technical recruiter. Using this candidate's CV data: ${JSON.stringify(cv)}, write a highly tailored, compelling 3-paragraph cover letter for the position of ${jobTitle} at ${employerName}. The job description is: ${jobDescription || ''}. Prove why their specific skills match. Output ONLY the plain text cover letter. No markdown, no generic placeholders.`;
     const result = await model.generateContent(prompt);
-    const response = await result.response;
 
-    return res.status(200).json({ coverLetter: response.text() });
+    return res.json({ coverLetter: result.response.text() });
   } catch (error) {
     next(error);
   }

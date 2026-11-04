@@ -1,168 +1,129 @@
-import mongoose from 'mongoose';
 import Resume from '../models/Resume.js';
-import { buildResumePDF } from '../services/pdfGenerator.js';
 
-/**
- * @desc    Create a new resume
- * @route   POST /api/resumes
- * @access  Private
- */
-export const createResume = async (req, res, next) => {
+const getUserId = (req) => req.user?.id || req.user?._id || req.user?.uid;
+
+const formatExperience = (experience) => {
+  if (typeof experience === 'string') return experience;
+  if (!Array.isArray(experience)) return '';
+
+  return experience
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (!item || typeof item !== 'object') return '';
+
+      const heading = [item.role, item.company].filter(Boolean).join(' at ');
+      const dates = [item.startDate, item.endDate].filter(Boolean).join(' - ');
+      const bullets = Array.isArray(item.bulletPoints) ? item.bulletPoints.join('\n') : '';
+      return [heading, dates, bullets].filter(Boolean).join('\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+};
+
+const formatEducation = (education) => {
+  if (typeof education === 'string') return education;
+  if (!Array.isArray(education)) return '';
+
+  return education
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (!item || typeof item !== 'object') return '';
+
+      return [
+        [item.degree, item.fieldOfStudy].filter(Boolean).join(' '),
+        item.institution,
+        item.graduationYear
+      ].filter(Boolean).join(', ');
+    })
+    .filter(Boolean)
+    .join('\n');
+};
+
+const toResumeResponse = (resume) => {
+  if (!resume) return {};
+
+  const personalInfo = resume.personalInfo || {};
+  return {
+    _id: resume._id,
+    personalInfo: {
+      name: personalInfo.name || personalInfo.fullName || resume.name || '',
+      email: personalInfo.email || '',
+      phone: personalInfo.phone || '',
+      title: personalInfo.title || ''
+    },
+    summary: resume.summary || personalInfo.summary || '',
+    skills: Array.isArray(resume.skills) ? resume.skills : [],
+    experience: formatExperience(resume.experience),
+    education: formatEducation(resume.education)
+  };
+};
+
+export const getResume = async (req, res, next) => {
   try {
-    const resume = new Resume({
-      ...req.validatedBody,
-      userId: req.user._id
-    });
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
 
-    const savedResume = await resume.save();
-    return res.status(201).json(savedResume);
+    const resume = await Resume.findOne({ userId }).lean();
+    return res.status(200).json(toResumeResponse(resume));
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
-/**
- * @desc    Get all resumes for the authenticated user
- * @route   GET /api/resumes
- * @access  Private
- */
-export const getResumes = async (req, res, next) => {
+export const saveResume = async (req, res, next) => {
   try {
-    const resumes = await Resume.find({ userId: req.user._id }).sort({ updatedAt: -1 });
-    return res.status(200).json(resumes);
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @desc    Get a specific resume by ID
- * @route   GET /api/resumes/:id
- * @access  Private
- */
-export const getResumeById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(404).json({ error: 'Resume not found' });
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required.' });
     }
 
-    const resume = await Resume.findOne({
-      _id: id,
-      userId: req.user._id
-    });
-
-    if (!resume) {
-      return res.status(404).json({ error: 'Resume not found' });
+    const { personalInfo = {}, summary = '', skills = [], experience = '', education = '' } = req.body;
+    if (!personalInfo || typeof personalInfo !== 'object' || Array.isArray(personalInfo)) {
+      return res.status(400).json({ error: 'personalInfo must be an object.' });
+    }
+    if (!Array.isArray(skills) || !skills.every((skill) => typeof skill === 'string')) {
+      return res.status(400).json({ error: 'skills must be an array of strings.' });
+    }
+    if (typeof summary !== 'string' || typeof education !== 'string') {
+      return res.status(400).json({ error: 'summary and education must be strings.' });
+    }
+    if (
+      typeof experience !== 'string' &&
+      !(Array.isArray(experience) && experience.every((item) => item && typeof item === 'object'))
+    ) {
+      return res.status(400).json({ error: 'experience must be text or an array of objects.' });
     }
 
-    return res.status(200).json(resume);
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @desc    Update a resume by ID
- * @route   PUT /api/resumes/:id
- * @access  Private
- */
-export const updateResume = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
-
-    const updatedResume = await Resume.findOneAndUpdate(
-      {
-        _id: id,
-        userId: req.user._id
+    const update = {
+      personalInfo: {
+        name: typeof personalInfo.name === 'string' ? personalInfo.name.trim() : '',
+        email: typeof personalInfo.email === 'string' ? personalInfo.email.trim() : '',
+        phone: typeof personalInfo.phone === 'string' ? personalInfo.phone.trim() : '',
+        title: typeof personalInfo.title === 'string' ? personalInfo.title.trim() : ''
       },
+      summary: summary.trim(),
+      skills: skills.map((skill) => skill.trim()).filter(Boolean),
+      experience: typeof experience === 'string' ? experience.trim() : experience,
+      education: education.trim()
+    };
+
+    const resume = await Resume.findOneAndUpdate(
+      { userId },
+      { $set: update },
       {
-        ...req.validatedBody
-      },
-      {
-        new: true,
-        runValidators: true
+        upsert: true,
+        returnDocument: 'after',
+        runValidators: true,
+        setDefaultsOnInsert: true
       }
     );
 
-    if (!updatedResume) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
-
-    return res.status(200).json(updatedResume);
+    return res.status(200).json(toResumeResponse(resume.toObject()));
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
-/**
- * @desc    Delete a resume by ID
- * @route   DELETE /api/resumes/:id
- * @access  Private
- */
-export const deleteResume = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
-
-    const deletedResume = await Resume.findOneAndDelete({
-      _id: id,
-      userId: req.user._id
-    });
-
-    if (!deletedResume) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Resume deleted successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @desc    Generate and stream ATS-friendly PDF preview of a resume
- * @route   GET /api/resumes/:id/preview.pdf
- * @access  Private
- */
-export const getResumePdfPreview = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
-
-    const resume = await Resume.findOne({
-      _id: id,
-      userId: req.user._id
-    });
-
-    if (!resume) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="resume_preview.pdf"');
-
-    buildResumePDF(
-      resume,
-      (chunk) => res.write(chunk),
-      () => res.end()
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
+export default { getResume, saveResume };
