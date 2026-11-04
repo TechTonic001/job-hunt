@@ -1,6 +1,6 @@
 /* oxlint-disable react/incompatible-library */
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { Upload, Loader2, Download } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
 import resumeSchema from '../validators/resumeSchema.js';
@@ -41,6 +41,7 @@ export const CVBuilder = () => {
     defaultValues: EMPTY_RESUME_VALUES,
     mode: 'onChange'
   });
+  const skills = useWatch({ control, name: 'skills' }) || [];
 
   // Dynamic field arrays
   const {
@@ -795,13 +796,13 @@ export const CVBuilder = () => {
               Core Skills (comma-separated)
             </label>
             <input
-              defaultValue={EMPTY_RESUME_VALUES.skills.join(', ')}
+              value={skills.join(', ')}
               onChange={(e) => {
                 const items = e.target.value
                   .split(',')
                   .map((s) => s.trim())
                   .filter(Boolean);
-                setValue('skills', items);
+                setValue('skills', items, { shouldDirty: true });
               }}
               className="w-full p-2 mt-1 border border-gray-300 rounded-md"
               placeholder="e.g. JavaScript, React, SQL"
