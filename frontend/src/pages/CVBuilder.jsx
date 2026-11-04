@@ -276,6 +276,12 @@ export const CVBuilder = () => {
       };
       reset(importedValues);
 
+      const importedResumeId = d._id;
+      if (importedResumeId) {
+        resumeIdRef.current = importedResumeId;
+        setResumeId(importedResumeId);
+      }
+
       const savePayload = {
         title: 'My Resume',
         personalInfo: {
@@ -296,21 +302,22 @@ export const CVBuilder = () => {
       const validation = resumeSchema.safeParse(savePayload);
       if (!validation.success) {
         setSaveStatus('incomplete');
-        setImportMessage('Resume imported. Complete the required fields to save it.');
+        setImportMessage('Resume imported and saved as a draft. Complete the required fields to finish your resume.');
+        setImportError('');
         return;
       }
 
-      const savedResume = resumeId
-        ? await axiosClient.put(`/api/resumes/${resumeId}`, savePayload)
-        : await axiosClient.post('/api/resumes', savePayload);
-
-      resumeIdRef.current = savedResume.data._id || resumeId;
-      if (!resumeId) {
-        setResumeId(savedResume.data._id);
+      if (!importedResumeId) {
+        const savedResume = resumeId
+          ? await axiosClient.put(`/api/resumes/${resumeId}`, savePayload)
+          : await axiosClient.post('/api/resumes', savePayload);
+        resumeIdRef.current = savedResume.data._id || resumeId;
+        setResumeId(savedResume.data._id || resumeId);
       }
       setSaveStatus('saved');
+      setImportError('');
       setImportMessage('Resume imported and saved.');
-      fetchPdfPreview(savedResume.data._id || resumeId);
+      fetchPdfPreview(importedResumeId || resumeIdRef.current);
     } catch (err) {
       console.error('Import failed:', err);
       const data = err?.response?.data;
@@ -403,7 +410,7 @@ export const CVBuilder = () => {
               </span>
             ) : saveStatus === 'incomplete' ? (
               <span className="text-xs font-medium text-amber-700" role="status">
-                Complete required fields to save
+                Draft saved — complete required fields
               </span>
             ) : saveStatus === 'error' ? (
               <span className="text-xs font-medium text-rose-600" role="alert">

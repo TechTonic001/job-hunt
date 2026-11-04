@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 // Removed erroneous Firebase auth import
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import pino from 'pino';
+import Resume from '../models/Resume.js';
 import {
   createResume,
   getResumes,
@@ -151,7 +152,70 @@ ${resumeText}`;
       return res.status(503).json({ error: 'AI parsing unavailable right now. All Gemini models are busy. Please try again shortly.' });
     }
 
-    return res.json(parsed);
+    const asString = (value) => typeof value === 'string' ? value.trim() : '';
+    const asStringArray = (value) =>
+      Array.isArray(value) ? value.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean) : [];
+    const personalInfo = parsed.personalInfo && typeof parsed.personalInfo === 'object'
+      ? parsed.personalInfo
+      : {};
+    const importedResume = {
+      title: 'My Resume',
+      personalInfo: {
+        fullName: asString(parsed.fullName || personalInfo.fullName),
+        email: asString(personalInfo.email),
+        phone: asString(personalInfo.phone),
+        location: asString(personalInfo.location),
+        linkedinUrl: asString(personalInfo.linkedin || personalInfo.linkedinUrl),
+        githubUrl: asString(personalInfo.github || personalInfo.githubUrl),
+        summary: asString(parsed.summary || personalInfo.summary)
+      },
+      experience: Array.isArray(parsed.experience)
+        ? parsed.experience.filter((item) => item && typeof item === 'object').map((item) => ({
+            company: asString(item.company),
+            role: asString(item.role),
+            location: asString(item.location),
+            startDate: asString(item.startDate),
+            endDate: asString(item.endDate),
+            isCurrent: Boolean(item.isCurrent),
+            bulletPoints: asStringArray(item.bulletPoints)
+          }))
+        : [],
+      education: Array.isArray(parsed.education)
+        ? parsed.education.filter((item) => item && typeof item === 'object').map((item) => ({
+            institution: asString(item.institution),
+            degree: asString(item.degree),
+            fieldOfStudy: asString(item.fieldOfStudy),
+            graduationYear: asString(String(item.graduationYear || ''))
+          }))
+        : [],
+      projects: Array.isArray(parsed.projects)
+        ? parsed.projects.filter((item) => item && typeof item === 'object').map((item) => ({
+            name: asString(item.name),
+            description: asString(item.description),
+            liveUrl: asString(item.liveUrl),
+            techStack: asStringArray(item.techStack)
+          }))
+        : [],
+      skills: asStringArray(parsed.skills)
+    };
+
+    const currentResume = await Resume.findOne({ userId: req.user._id }).sort({ updatedAt: -1 });
+    const resumeFilter = { userId: req.user._id };
+    if (currentResume) {
+      resumeFilter._id = currentResume._id;
+    }
+
+    const savedResume = await Resume.findOneAndUpdate(
+      resumeFilter,
+      { $set: importedResume },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({
+      ...parsed,
+      _id: savedResume._id,
+      draft: true
+    });
   } catch (err) {
     logger.error({ err }, '[/import] Error');
     return res.status(500).json({ error: 'Failed to parse PDF' });
@@ -165,4 +229,3 @@ router
   .delete(protect, deleteResume);
 
 export default router;
-
