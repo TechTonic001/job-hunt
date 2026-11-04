@@ -49,6 +49,8 @@ export const CVBuilder = () => {
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');
   const [saveStatus, setSaveStatus] = useState('saved');
   const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
+  const [importError, setImportError] = useState('');
 
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef(null);
@@ -234,6 +236,10 @@ export const CVBuilder = () => {
     if (!file) return;
 
     setIsImporting(true);
+    setImportMessage('');
+    setImportError('');
+    let hasParsedResume = false;
+
     try {
       const formData = new FormData();
       formData.append('resume', file);
@@ -243,9 +249,10 @@ export const CVBuilder = () => {
       });
 
       const d = response.data;
+      hasParsedResume = true;
 
       // Normalise the AI response before resetting the form
-      reset({
+      const importedValues = {
         fullName: d.fullName || '',
         personalInfo: {
           email: d.personalInfo?.email || '',
@@ -282,10 +289,61 @@ export const CVBuilder = () => {
             }))
           : [],
         skills: Array.isArray(d.skills) ? d.skills : []
-      });
+      };
+      reset(importedValues);
+
+      const savePayload = {
+        title: 'My Resume',
+        personalInfo: {
+          fullName: importedValues.fullName,
+          email: importedValues.personalInfo.email,
+          phone: importedValues.personalInfo.phone,
+          location: importedValues.personalInfo.location,
+          linkedinUrl: importedValues.personalInfo.linkedin,
+          githubUrl: importedValues.personalInfo.github,
+          summary: importedValues.summary
+        },
+        experience: importedValues.experience,
+        education: importedValues.education,
+        projects: importedValues.projects,
+        skills: importedValues.skills
+      };
+
+      const validation = resumeSchema.safeParse(savePayload);
+      if (!validation.success) {
+        setSaveStatus('incomplete');
+        setImportMessage('Resume imported. Complete the required fields to save it.');
+        return;
+      }
+
+      const savedResume = resumeId
+        ? await axiosClient.put(`/api/resumes/${resumeId}`, savePayload)
+        : await axiosClient.post('/api/resumes', savePayload);
+
+      if (!resumeId) {
+        setResumeId(savedResume.data._id);
+      }
+      setSaveStatus('saved');
+      setImportMessage('Resume imported and saved.');
+      fetchPdfPreview(savedResume.data._id || resumeId);
     } catch (err) {
       console.error('Import failed:', err);
-      alert(err?.response?.data?.error || 'Failed to import resume. Please try again.');
+      const data = err?.response?.data;
+      const serverMessage =
+        typeof data?.error === 'string'
+          ? data.error
+          : data?.error?.message ||
+            (Array.isArray(data?.details)
+              ? data.details.map((detail) => detail.message).join(' ')
+              : '');
+      setImportError(
+        hasParsedResume
+          ? 'Resume was parsed but could not be saved. Please try again.'
+          : serverMessage || err?.message || 'Failed to import resume. Please try again.'
+      );
+      if (hasParsedResume) {
+        setSaveStatus('error');
+      }
     } finally {
       setIsImporting(false);
       // Reset the file input so the same file can be re-imported if needed
@@ -372,6 +430,16 @@ export const CVBuilder = () => {
               </span>
             )}
           </div>
+          {importMessage && (
+            <p className="mt-3 text-xs font-medium text-emerald-700" role="status">
+              {importMessage}
+            </p>
+          )}
+          {importError && (
+            <p className="mt-3 text-xs font-medium text-rose-600" role="alert">
+              {importError}
+            </p>
+          )}
         </div>
 
         <form onSubmit={(e) => e.preventDefault()} className="pb-12">
