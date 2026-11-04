@@ -5,43 +5,20 @@ import { Upload, Loader2, Download } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
 import resumeSchema from '../validators/resumeSchema.js';
 
-const DEFAULT_RESUME_VALUES = {
-  fullName: 'Amoo Halleluyah Olamilekan',
+const EMPTY_RESUME_VALUES = {
+  fullName: '',
   personalInfo: {
-    email: 'test@example.com',
-    phone: '+2340000000000',
-    location: 'Ogbomoso, Oyo, Nigeria',
+    email: '',
+    phone: '',
+    location: '',
     github: '',
     linkedin: ''
   },
-  summary: 'Full-stack software developer specializing in MERN, Angular, and PostgreSQL architectures.',
-  experience: [
-    {
-      company: 'Ennovate Lab',
-      role: 'Software Development Intern (SIWES)',
-      startDate: 'Oct 2025',
-      endDate: 'Dec 2025',
-      isCurrent: false,
-      bulletPoints: ['Developed and deployed full-stack web applications.']
-    }
-  ],
-  education: [
-    {
-      institution: 'SQI College of ICT',
-      degree: 'National Diploma',
-      fieldOfStudy: 'Computer Science',
-      graduationYear: '2026'
-    }
-  ],
-  projects: [
-    {
-      name: 'ProTech',
-      description: 'Automated web-based rent tracking platform',
-      techStack: ['React', 'Node.js', 'PostgreSQL'],
-      liveUrl: ''
-    }
-  ],
-  skills: ['React', 'Node.js', 'PostgreSQL', 'MERN Stack', 'Angular']
+  summary: '',
+  experience: [],
+  education: [],
+  projects: [],
+  skills: []
 };
 
 export const CVBuilder = () => {
@@ -55,9 +32,13 @@ export const CVBuilder = () => {
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
+  const resumeIdRef = useRef('');
+  const latestFormDataRef = useRef(null);
+  const saveVersionRef = useRef(0);
+  const isSavingRef = useRef(false);
 
   const { register, control, reset, watch, setValue } = useForm({
-    defaultValues: DEFAULT_RESUME_VALUES,
+    defaultValues: EMPTY_RESUME_VALUES,
     mode: 'onChange'
   });
 
@@ -105,7 +86,7 @@ export const CVBuilder = () => {
     }
   }, [resumeId]);
 
-  // Lifecycle on mount: Fetch or create default resume
+  // Load the user's resume when one exists.
   useEffect(() => {
     let isMounted = true;
 
@@ -116,43 +97,27 @@ export const CVBuilder = () => {
         if (Array.isArray(resumes) && resumes.length > 0) {
           const existing = resumes[0];
           if (isMounted) {
+            resumeIdRef.current = existing._id;
             setResumeId(existing._id);
             reset({
-              fullName: existing.personalInfo?.fullName || DEFAULT_RESUME_VALUES.fullName,
-              summary: existing.personalInfo?.summary || DEFAULT_RESUME_VALUES.summary,
+              fullName: existing.personalInfo?.fullName || EMPTY_RESUME_VALUES.fullName,
+              summary: existing.personalInfo?.summary || EMPTY_RESUME_VALUES.summary,
               personalInfo: {
-                email: existing.personalInfo?.email || DEFAULT_RESUME_VALUES.personalInfo.email,
-                phone: existing.personalInfo?.phone || DEFAULT_RESUME_VALUES.personalInfo.phone,
-                location: existing.personalInfo?.location || DEFAULT_RESUME_VALUES.personalInfo.location,
+                email: existing.personalInfo?.email || EMPTY_RESUME_VALUES.personalInfo.email,
+                phone: existing.personalInfo?.phone || EMPTY_RESUME_VALUES.personalInfo.phone,
+                location: existing.personalInfo?.location || EMPTY_RESUME_VALUES.personalInfo.location,
                 github: existing.personalInfo?.githubUrl || existing.personalInfo?.github || '',
                 linkedin: existing.personalInfo?.linkedinUrl || existing.personalInfo?.linkedin || ''
               },
-              experience: existing.experience?.length ? existing.experience : DEFAULT_RESUME_VALUES.experience,
-              education: existing.education?.length ? existing.education : DEFAULT_RESUME_VALUES.education,
-              projects: existing.projects?.length ? existing.projects : DEFAULT_RESUME_VALUES.projects,
-              skills: existing.skills?.length ? existing.skills : DEFAULT_RESUME_VALUES.skills
+              experience: existing.experience || EMPTY_RESUME_VALUES.experience,
+              education: existing.education || EMPTY_RESUME_VALUES.education,
+              projects: existing.projects || EMPTY_RESUME_VALUES.projects,
+              skills: existing.skills || EMPTY_RESUME_VALUES.skills
             });
           }
         } else {
-          const createPayload = {
-            title: 'My Resume',
-            personalInfo: {
-              fullName: DEFAULT_RESUME_VALUES.fullName,
-              email: DEFAULT_RESUME_VALUES.personalInfo.email,
-              phone: DEFAULT_RESUME_VALUES.personalInfo.phone,
-              location: DEFAULT_RESUME_VALUES.personalInfo.location,
-              linkedinUrl: DEFAULT_RESUME_VALUES.personalInfo.linkedin,
-              githubUrl: DEFAULT_RESUME_VALUES.personalInfo.github,
-              summary: DEFAULT_RESUME_VALUES.summary
-            },
-            experience: DEFAULT_RESUME_VALUES.experience,
-            education: DEFAULT_RESUME_VALUES.education,
-            projects: DEFAULT_RESUME_VALUES.projects,
-            skills: DEFAULT_RESUME_VALUES.skills
-          };
-          const { data: created } = await axiosClient.post('/api/resumes', createPayload);
           if (isMounted) {
-            setResumeId(created._id);
+            setSaveStatus('incomplete');
           }
         }
       } catch (err) {
@@ -180,46 +145,65 @@ export const CVBuilder = () => {
 
   // Auto-Save effect: Debounced 1000ms
   useEffect(() => {
-    if (!resumeId) return;
-
     const subscription = watch((formData) => {
-      if (isInitialLoad.current) {
+      if (isInitialLoad.current || isImporting) {
         return;
       }
 
+      latestFormDataRef.current = formData;
+      saveVersionRef.current += 1;
       clearTimeout(saveTimeoutRef.current);
       setSaveStatus('pending');
       saveTimeoutRef.current = setTimeout(async () => {
-        const payload = {
-          title: 'My Resume',
-          personalInfo: {
-            fullName: formData.fullName || formData.personalInfo?.fullName || 'Amoo Halleluyah Olamilekan',
-            email: formData.personalInfo?.email || 'test@example.com',
-            phone: formData.personalInfo?.phone || '+2340000000000',
-            location: formData.personalInfo?.location || 'Ogbomoso, Oyo, Nigeria',
-            linkedinUrl: formData.personalInfo?.linkedin || '',
-            githubUrl: formData.personalInfo?.github || '',
-            summary: formData.summary || formData.personalInfo?.summary || ''
-          },
-          experience: Array.isArray(formData.experience) ? formData.experience : [],
-          education: Array.isArray(formData.education) ? formData.education : [],
-          projects: Array.isArray(formData.projects) ? formData.projects : [],
-          skills: Array.isArray(formData.skills) ? formData.skills : []
-        };
-
-        if (!resumeSchema.safeParse(payload).success) {
-          setSaveStatus('incomplete');
+        if (isSavingRef.current) {
           return;
         }
 
-        setSaveStatus('saving');
+        isSavingRef.current = true;
         try {
-          await axiosClient.put(`/api/resumes/${resumeId}`, payload);
-          setSaveStatus('saved');
-          fetchPdfPreview(resumeId);
+          let savedVersion;
+          do {
+            savedVersion = saveVersionRef.current;
+            const currentFormData = latestFormDataRef.current || {};
+            const payload = {
+              title: 'My Resume',
+              personalInfo: {
+                fullName: currentFormData.fullName || currentFormData.personalInfo?.fullName || '',
+                email: currentFormData.personalInfo?.email || '',
+                phone: currentFormData.personalInfo?.phone || '',
+                location: currentFormData.personalInfo?.location || '',
+                linkedinUrl: currentFormData.personalInfo?.linkedin || '',
+                githubUrl: currentFormData.personalInfo?.github || '',
+                summary: currentFormData.summary || currentFormData.personalInfo?.summary || ''
+              },
+              experience: Array.isArray(currentFormData.experience) ? currentFormData.experience : [],
+              education: Array.isArray(currentFormData.education) ? currentFormData.education : [],
+              projects: Array.isArray(currentFormData.projects) ? currentFormData.projects : [],
+              skills: Array.isArray(currentFormData.skills) ? currentFormData.skills : []
+            };
+
+            if (!resumeSchema.safeParse(payload).success) {
+              setSaveStatus('incomplete');
+              return;
+            }
+
+            setSaveStatus('saving');
+            const savedResume = resumeIdRef.current
+              ? await axiosClient.put(`/api/resumes/${resumeIdRef.current}`, payload)
+              : await axiosClient.post('/api/resumes', payload);
+            const savedId = savedResume.data._id || resumeIdRef.current;
+            if (!resumeIdRef.current) {
+              resumeIdRef.current = savedId;
+              setResumeId(savedId);
+            }
+            setSaveStatus('saved');
+            fetchPdfPreview(savedId);
+          } while (savedVersion !== saveVersionRef.current);
         } catch (err) {
           console.error('Auto-save error:', err);
           setSaveStatus('error');
+        } finally {
+          isSavingRef.current = false;
         }
       }, 1000);
     });
@@ -228,7 +212,7 @@ export const CVBuilder = () => {
       subscription.unsubscribe();
       clearTimeout(saveTimeoutRef.current);
     };
-  }, [watch, resumeId, fetchPdfPreview]);
+  }, [watch, isImporting, fetchPdfPreview]);
 
   // AI Import: parse a PDF resume and populate all form fields instantly
   const handleImport = async (e) => {
@@ -320,6 +304,7 @@ export const CVBuilder = () => {
         ? await axiosClient.put(`/api/resumes/${resumeId}`, savePayload)
         : await axiosClient.post('/api/resumes', savePayload);
 
+      resumeIdRef.current = savedResume.data._id || resumeId;
       if (!resumeId) {
         setResumeId(savedResume.data._id);
       }
@@ -453,7 +438,7 @@ export const CVBuilder = () => {
               <input
                 {...register('fullName')}
                 className="w-full p-2 mt-1 border border-gray-300 rounded-md"
-                placeholder="Amoo Halleluyah Olamilekan"
+                placeholder="Your full name"
               />
             </div>
 
@@ -464,7 +449,7 @@ export const CVBuilder = () => {
                   type="email"
                   {...register('personalInfo.email')}
                   className="w-full p-2 mt-1 border border-gray-300 rounded-md"
-                  placeholder="test@example.com"
+                  placeholder="name@example.com"
                 />
               </div>
 
@@ -483,7 +468,7 @@ export const CVBuilder = () => {
               <input
                 {...register('personalInfo.location')}
                 className="w-full p-2 mt-1 border border-gray-300 rounded-md"
-                placeholder="Ogbomoso, Oyo, Nigeria"
+                placeholder="City, Country"
               />
             </div>
 
@@ -564,7 +549,7 @@ export const CVBuilder = () => {
                     <input
                       {...register(`experience.${index}.company`)}
                       className="w-full p-2 mt-1 border border-gray-300 rounded-md"
-                      placeholder="Ennovate Lab"
+                      placeholder="Company name"
                     />
                   </div>
 
@@ -664,7 +649,7 @@ export const CVBuilder = () => {
                     <input
                       {...register(`education.${index}.institution`)}
                       className="w-full p-2 mt-1 border border-gray-300 rounded-md"
-                      placeholder="SQI College of ICT"
+                      placeholder="Institution name"
                     />
                   </div>
 
@@ -803,7 +788,7 @@ export const CVBuilder = () => {
               Core Skills (comma-separated)
             </label>
             <input
-              defaultValue={DEFAULT_RESUME_VALUES.skills.join(', ')}
+              defaultValue={EMPTY_RESUME_VALUES.skills.join(', ')}
               onChange={(e) => {
                 const items = e.target.value
                   .split(',')
@@ -812,7 +797,7 @@ export const CVBuilder = () => {
                 setValue('skills', items);
               }}
               className="w-full p-2 mt-1 border border-gray-300 rounded-md"
-              placeholder="React, Node.js, PostgreSQL, MERN Stack, Angular"
+              placeholder="e.g. JavaScript, React, SQL"
             />
           </div>
         </form>
