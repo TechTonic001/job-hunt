@@ -1,7 +1,7 @@
 import express from 'express';
 import { generateCoverLetter, getMatchedJobs } from '../controllers/jobController.js';
 import { protect as authMiddleware } from '../middleware/auth.js';
-import { generateCoverLetter } from '../services/coverLetterGenerator.js';
+import { generateCoverLetter as generateCoverLetterDraft } from '../services/coverLetterGenerator.js';
 import { dispatchEmail } from '../services/gmailDispatcher.js';
 import { buildResumePDF } from '../services/pdfGenerator.js';
 import Resume from '../models/Resume.js';
@@ -31,7 +31,7 @@ router.post('/draft', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'No resume found. Please build your resume first.' });
     }
 
-    const draft = await generateCoverLetter(
+    const draft = await generateCoverLetterDraft(
       resume.toObject(),
       jobTitle,
       companyName,
