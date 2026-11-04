@@ -1,6 +1,14 @@
-import { ArrowUpRight, Briefcase, CheckCircle2, MapPin, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowUpRight, Briefcase, CheckCircle2, Clipboard, Loader2, MapPin, X, XCircle } from 'lucide-react';
+import axiosClient from '../api/axiosClient.js';
 
 export const JobCard = ({ job }) => {
+  const [coverLetter, setCoverLetter] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [copied, setCopied] = useState(false);
+
   const title = job?.job_title || job?.title || 'Untitled role';
   const company = job?.employer_name || job?.company || 'Company not listed';
   const location = job?.job_location || job?.location || 'Remote';
@@ -8,6 +16,42 @@ export const JobCard = ({ job }) => {
   const score = Math.round(Number(job?.matchScore) || 0);
   const matchingSkills = Array.isArray(job?.matchingSkills) ? job.matchingSkills : [];
   const missingSkills = Array.isArray(job?.missingSkills) ? job.missingSkills : [];
+
+  const handleGenerateCoverLetter = async () => {
+    setShowModal(true);
+    setIsGenerating(true);
+    setCoverLetter('');
+    setErrorMessage('');
+    setCopied(false);
+
+    try {
+      const { data } = await axiosClient.post('/api/jobs/cover-letter', {
+        job_title: title,
+        employer_name: company,
+        job_description: job?.job_description || job?.description || ''
+      });
+      setCoverLetter(data.coverLetter);
+    } catch (error) {
+      const responseError = error?.response?.data?.error;
+      setErrorMessage(
+        typeof responseError === 'string'
+          ? responseError
+          : responseError?.message || error?.message || 'Failed to generate cover letter.'
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(coverLetter);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      setErrorMessage(error?.message || 'Unable to copy the cover letter.');
+    }
+  };
 
   return (
     <article className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-300 hover:border-indigo-500/50 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]">
@@ -57,8 +101,15 @@ export const JobCard = ({ job }) => {
         </div>
       )}
 
-      {applyLink && (
-        <div className="mt-5 flex justify-end border-t border-white/10 pt-4">
+      <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-white/10 pt-4">
+        <button
+          type="button"
+          onClick={handleGenerateCoverLetter}
+          className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/30 px-4 py-2 font-medium text-indigo-400 transition-colors hover:bg-indigo-500/10"
+        >
+          Generate AI Cover Letter
+        </button>
+        {applyLink && (
           <a
             href={applyLink}
             target="_blank"
@@ -68,6 +119,63 @@ export const JobCard = ({ job }) => {
             Apply Now
             <ArrowUpRight className="h-4 w-4" />
           </a>
+        )}
+      </div>
+
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setShowModal(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cover-letter-title"
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#18181b] text-gray-200 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between border-b border-white/10 px-6 py-4">
+              <div>
+                <h2 id="cover-letter-title" className="text-lg font-semibold text-gray-100">
+                  Your AI Cover Letter
+                </h2>
+                <p className="mt-1 text-sm text-gray-400">{title} at {company}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-100"
+                aria-label="Close cover letter"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </header>
+
+            <div className="min-h-48 flex-1 overflow-y-auto p-6">
+              {isGenerating ? (
+                <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-gray-400">
+                  <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+                  <p>Writing a tailored cover letter...</p>
+                </div>
+              ) : errorMessage ? (
+                <p role="alert" className="text-sm text-rose-300">{errorMessage}</p>
+              ) : (
+                <p className="whitespace-pre-wrap text-sm leading-7 text-gray-200">{coverLetter}</p>
+              )}
+            </div>
+
+            <footer className="flex justify-end border-t border-white/10 px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCopy}
+                disabled={!coverLetter || isGenerating}
+                className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/30 px-4 py-2 font-medium text-indigo-300 transition-colors hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Clipboard className="h-4 w-4" />
+                {copied ? 'Copied!' : 'Copy to Clipboard'}
+              </button>
+            </footer>
+          </section>
         </div>
       )}
     </article>

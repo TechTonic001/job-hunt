@@ -1,6 +1,6 @@
 import express from 'express';
-import { getMatchedJobs } from '../controllers/jobController.js';
-import { protect } from '../middleware/auth.js';
+import { generateCoverLetter, getMatchedJobs } from '../controllers/jobController.js';
+import { protect as authMiddleware } from '../middleware/auth.js';
 import { generateCoverLetter } from '../services/coverLetterGenerator.js';
 import { dispatchEmail } from '../services/gmailDispatcher.js';
 import { buildResumePDF } from '../services/pdfGenerator.js';
@@ -10,10 +10,13 @@ import { User } from '../models/User.js';
 const router = express.Router();
 
 // GET /api/jobs/match - Semantic job matching against user's resume
-router.get('/match', protect, getMatchedJobs);
+router.get('/match', authMiddleware, getMatchedJobs);
+
+// POST /api/jobs/cover-letter - Generate a tailored cover letter using the user's resume
+router.post('/cover-letter', authMiddleware, generateCoverLetter);
 
 // POST /api/jobs/draft - Generate a cover letter draft using Gemini AI
-router.post('/draft', protect, async (req, res) => {
+router.post('/draft', authMiddleware, async (req, res) => {
   try {
     const { jobTitle, companyName, jobDescription } = req.body;
 
@@ -43,7 +46,7 @@ router.post('/draft', protect, async (req, res) => {
 });
 
 // POST /api/jobs/dispatch - Send the application email via Gmail API
-router.post('/dispatch', protect, async (req, res) => {
+router.post('/dispatch', authMiddleware, async (req, res) => {
   try {
     const { applyEmail, subject, body } = req.body;
 
@@ -58,4 +61,3 @@ router.post('/dispatch', protect, async (req, res) => {
 });
 
 export default router;
-
