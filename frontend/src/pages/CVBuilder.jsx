@@ -237,7 +237,7 @@ export const CVBuilder = () => {
 
       // Normalise the AI response before resetting the form
       const importedValues = {
-        fullName: d.fullName || '',
+        fullName: d.fullName || d.personalInfo?.fullName || '',
         personalInfo: {
           email: d.personalInfo?.email || '',
           phone: d.personalInfo?.phone || '',
