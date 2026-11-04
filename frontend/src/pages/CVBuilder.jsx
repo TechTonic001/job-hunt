@@ -5,44 +5,44 @@ import { Upload, Loader2, Download } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
 import resumeSchema from '../validators/resumeSchema.js';
 
-// const DEFAULT_RESUME_VALUES = {
-//   fullName: 'Amoo Halleluyah Olamilekan',
-//   personalInfo: {
-//     email: 'test@example.com',
-//     phone: '+2340000000000',
-//     location: 'Ogbomoso, Oyo, Nigeria',
-//     github: '',
-//     linkedin: ''
-//   },
-//   summary: 'Full-stack software developer specializing in MERN, Angular, and PostgreSQL architectures.',
-//   experience: [
-//     {
-//       company: 'Ennovate Lab',
-//       role: 'Software Development Intern (SIWES)',
-//       startDate: 'Oct 2025',
-//       endDate: 'Dec 2025',
-//       isCurrent: false,
-//       bulletPoints: ['Developed and deployed full-stack web applications.']
-//     }
-//   ],
-//   education: [
-//     {
-//       institution: 'SQI College of ICT',
-//       degree: 'National Diploma',
-//       fieldOfStudy: 'Computer Science',
-//       graduationYear: '2026'
-//     }
-//   ],
-//   projects: [
-//     {
-//       name: 'ProTech',
-//       description: 'Automated web-based rent tracking platform',
-//       techStack: ['React', 'Node.js', 'PostgreSQL'],
-//       liveUrl: ''
-//     }
-//   ],
-//   skills: ['React', 'Node.js', 'PostgreSQL', 'MERN Stack', 'Angular']
-// };
+const DEFAULT_RESUME_VALUES = {
+  fullName: 'Amoo Halleluyah Olamilekan',
+  personalInfo: {
+    email: 'test@example.com',
+    phone: '+2340000000000',
+    location: 'Ogbomoso, Oyo, Nigeria',
+    github: '',
+    linkedin: ''
+  },
+  summary: 'Full-stack software developer specializing in MERN, Angular, and PostgreSQL architectures.',
+  experience: [
+    {
+      company: 'Ennovate Lab',
+      role: 'Software Development Intern (SIWES)',
+      startDate: 'Oct 2025',
+      endDate: 'Dec 2025',
+      isCurrent: false,
+      bulletPoints: ['Developed and deployed full-stack web applications.']
+    }
+  ],
+  education: [
+    {
+      institution: 'SQI College of ICT',
+      degree: 'National Diploma',
+      fieldOfStudy: 'Computer Science',
+      graduationYear: '2026'
+    }
+  ],
+  projects: [
+    {
+      name: 'ProTech',
+      description: 'Automated web-based rent tracking platform',
+      techStack: ['React', 'Node.js', 'PostgreSQL'],
+      liveUrl: ''
+    }
+  ],
+  skills: ['React', 'Node.js', 'PostgreSQL', 'MERN Stack', 'Angular']
+};
 
 export const CVBuilder = () => {
   const [resumeId, setResumeId] = useState('');
