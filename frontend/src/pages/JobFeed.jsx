@@ -46,7 +46,7 @@ export const JobFeed = () => {
   }, []);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8">
         <p className="text-sm font-medium uppercase tracking-[0.2em] text-cyan-300">Live search</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-100">Recommended roles</h1>
@@ -91,7 +91,7 @@ export const JobFeed = () => {
           </div>
         )
       )}
-    </main>
+    </div>
   );
 };
 
