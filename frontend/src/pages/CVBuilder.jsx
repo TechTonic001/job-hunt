@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle2, Loader2, Save, UserRound } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, Loader2, Save, Upload, UserRound } from 'lucide-react';
 import axiosClient from '../api/axiosClient.js';
+
+const createExperience = () => ({ role: '', company: '', responsibilities: '' });
+const createEducation = () => ({ degree: '', institution: '', year: '' });
 
 const EMPTY_CV = {
   firstName: '',
@@ -9,13 +12,7 @@ const EMPTY_CV = {
   phone: '',
   title: '',
   skills: '',
-  summary: '',
-  role: '',
-  company: '',
-  experienceDetails: '',
-  degree: '',
-  institution: '',
-  graduationYear: ''
+  summary: ''
 };
 
 const getErrorMessage = (error) => {
@@ -26,54 +23,81 @@ const getErrorMessage = (error) => {
 
 const readExperience = (experience) => {
   if (Array.isArray(experience)) {
-    const entry = experience.find((item) => item && typeof item === 'object') || {};
-    return {
-      role: entry.role || '',
-      company: entry.company || '',
-      experienceDetails: Array.isArray(entry.bulletPoints)
+    const entries = experience.map((entry) => {
+      if (typeof entry === 'string') {
+        return { ...createExperience(), responsibilities: entry };
+      }
+      if (!entry || typeof entry !== 'object') return createExperience();
+
+      const responsibilities = Array.isArray(entry.bulletPoints)
         ? entry.bulletPoints.join('\n')
-        : typeof entry.details === 'string'
-          ? entry.details
-          : ''
-    };
+        : typeof entry.responsibilities === 'string'
+          ? entry.responsibilities
+          : typeof entry.details === 'string'
+            ? entry.details
+            : '';
+
+      return {
+        role: entry.role || '',
+        company: entry.company || '',
+        responsibilities
+      };
+    });
+
+    return entries.length ? entries : [createExperience()];
   }
 
-  return { role: '', company: '', experienceDetails: typeof experience === 'string' ? experience : '' };
+  if (typeof experience === 'string' && experience.trim()) {
+    return [{ ...createExperience(), responsibilities: experience }];
+  }
+  return [createExperience()];
 };
 
 const readEducation = (education) => {
-  if (typeof education !== 'string' || !education) {
-    return { degree: '', institution: '', graduationYear: '' };
+  if (Array.isArray(education)) {
+    const entries = education.map((entry) => {
+      if (typeof entry === 'string') return { ...createEducation(), degree: entry };
+      if (!entry || typeof entry !== 'object') return createEducation();
+      return {
+        degree: entry.degree || '',
+        institution: entry.institution || '',
+        year: entry.year || entry.graduationYear || ''
+      };
+    });
+    return entries.length ? entries : [createEducation()];
   }
 
-  const labels = ['Degree', 'Institution', 'Graduation year'];
-  const lines = education.split('\n');
-  const parsed = {};
-  lines.forEach((line) => {
-    const separatorIndex = line.indexOf(':');
-    if (separatorIndex < 0) return;
-    const label = line.slice(0, separatorIndex).trim();
-    const value = line.slice(separatorIndex + 1).trim();
-    if (label === labels[0]) parsed.degree = value;
-    if (label === labels[1]) parsed.institution = value;
-    if (label === labels[2]) parsed.graduationYear = value;
+  if (typeof education !== 'string' || !education.trim()) return [createEducation()];
+
+  const entries = education.split(/\n\s*\n/).map((section) => {
+    const entry = createEducation();
+    section.split('\n').forEach((line) => {
+      const separatorIndex = line.indexOf(':');
+      if (separatorIndex < 0) return;
+      const label = line.slice(0, separatorIndex).trim().toLowerCase();
+      const value = line.slice(separatorIndex + 1).trim();
+      if (label === 'degree') entry.degree = value;
+      if (label === 'institution') entry.institution = value;
+      if (label === 'graduation year' || label === 'year') entry.year = value;
+    });
+    return entry;
   });
 
-  return Object.keys(parsed).length
-    ? {
-        degree: parsed.degree || '',
-        institution: parsed.institution || '',
-        graduationYear: parsed.graduationYear || ''
-      }
-    : { degree: education, institution: '', graduationYear: '' };
+  const hasLabeledFields = entries.some((entry) => entry.degree || entry.institution || entry.year);
+  return hasLabeledFields
+    ? entries.filter((entry) => entry.degree || entry.institution || entry.year)
+    : [{ ...createEducation(), degree: education }];
 };
 
 export const CVBuilder = () => {
   const [cv, setCv] = useState(EMPTY_CV);
+  const [experiences, setExperiences] = useState([createExperience()]);
+  const [educationEntries, setEducationEntries] = useState([createEducation()]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -97,10 +121,10 @@ export const CVBuilder = () => {
           phone: personalInfo.phone || '',
           title: personalInfo.title || '',
           skills: Array.isArray(data?.skills) ? data.skills.join(', ') : '',
-          summary: data?.summary || personalInfo.summary || '',
-          ...readExperience(data?.experience),
-          ...readEducation(data?.education)
+          summary: data?.summary || personalInfo.summary || ''
         });
+        setExperiences(readExperience(data?.experience));
+        setEducationEntries(readEducation(data?.education));
       } catch (error) {
         if (isMounted) setErrorMessage(getErrorMessage(error));
       } finally {
@@ -121,24 +145,65 @@ export const CVBuilder = () => {
     setErrorMessage('');
   };
 
+  const addExperience = () => {
+    setExperiences((current) => [...current, createExperience()]);
+  };
+
+  const removeExperience = (index) => {
+    setExperiences((current) => current.filter((_, entryIndex) => entryIndex !== index));
+  };
+
+  const handleExperienceChange = (index, field, value) => {
+    setExperiences((current) => current.map((entry, entryIndex) =>
+      entryIndex === index ? { ...entry, [field]: value } : entry
+    ));
+    setMessage('');
+    setErrorMessage('');
+  };
+
+  const addEducation = () => {
+    setEducationEntries((current) => [...current, createEducation()]);
+  };
+
+  const removeEducation = (index) => {
+    setEducationEntries((current) => current.filter((_, entryIndex) => entryIndex !== index));
+  };
+
+  const handleEducationChange = (index, field, value) => {
+    setEducationEntries((current) => current.map((entry, entryIndex) =>
+      entryIndex === index ? { ...entry, [field]: value } : entry
+    ));
+    setMessage('');
+    setErrorMessage('');
+  };
+
+  const handleFileSelected = (event) => {
+    const file = event.target.files?.[0];
+    if (file) console.log('File selected:', file.name);
+    event.target.value = '';
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSaving(true);
     setMessage('');
     setErrorMessage('');
 
-    const experience = cv.role.trim() || cv.company.trim() || cv.experienceDetails.trim()
-      ? [{
-          role: cv.role.trim(),
-          company: cv.company.trim(),
-          bulletPoints: cv.experienceDetails.split('\n').map((line) => line.trim()).filter(Boolean)
-        }]
-      : '';
-    const education = [
-      cv.degree.trim() ? `Degree: ${cv.degree.trim()}` : '',
-      cv.institution.trim() ? `Institution: ${cv.institution.trim()}` : '',
-      cv.graduationYear.trim() ? `Graduation year: ${cv.graduationYear.trim()}` : ''
-    ].filter(Boolean).join('\n');
+    const experience = experiences
+      .map((entry) => ({
+        role: entry.role.trim(),
+        company: entry.company.trim(),
+        bulletPoints: entry.responsibilities.split('\n').map((line) => line.trim()).filter(Boolean)
+      }))
+      .filter((entry) => entry.role || entry.company || entry.bulletPoints.length > 0);
+    const education = educationEntries
+      .map((entry) => [
+        entry.degree.trim() ? `Degree: ${entry.degree.trim()}` : '',
+        entry.institution.trim() ? `Institution: ${entry.institution.trim()}` : '',
+        entry.year.trim() ? `Graduation year: ${entry.year.trim()}` : ''
+      ].filter(Boolean).join('\n'))
+      .filter(Boolean)
+      .join('\n\n');
 
     try {
       await axiosClient.post('/api/resumes', {
@@ -150,7 +215,7 @@ export const CVBuilder = () => {
         },
         skills: cv.skills.split(',').map((skill) => skill.trim()).filter(Boolean),
         summary: cv.summary.trim(),
-        experience,
+        experience: experience.length ? experience : '',
         education
       });
       setMessage('Your profile has been saved.');
@@ -265,20 +330,41 @@ export const CVBuilder = () => {
                 <h2 className="font-semibold text-gray-100">Experience</h2>
                 <p className="mt-1 text-sm text-gray-500">Share a recent role and your impact.</p>
               </div>
-              <div className="space-y-4">
-                <label className="block space-y-2 text-sm font-medium text-gray-300">
-                  Role
-                  <input name="role" value={cv.role} onChange={handleChange} className={inputClassName} placeholder="e.g. Software Engineer" />
-                </label>
-                <label className="block space-y-2 text-sm font-medium text-gray-300">
-                  Company
-                  <input name="company" value={cv.company} onChange={handleChange} className={inputClassName} placeholder="Company name" />
-                </label>
-                <label className="block space-y-2 text-sm font-medium text-gray-300">
-                  Responsibilities & achievements
-                  <textarea name="experienceDetails" value={cv.experienceDetails} onChange={handleChange} rows={4} className={inputClassName} placeholder="Add accomplishments, one per line." />
-                </label>
+              <div className="space-y-5">
+                {experiences.map((experience, index) => (
+                  <div key={index} className="rounded-lg border border-white/10 bg-black/10 p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-300">Role {index + 1}</p>
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeExperience(index)}
+                          className="text-sm text-rose-400 transition-colors hover:text-rose-300"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-4">
+                      <label className="block space-y-2 text-sm font-medium text-gray-300">
+                        Role
+                        <input value={experience.role} onChange={(event) => handleExperienceChange(index, 'role', event.target.value)} className={inputClassName} placeholder="e.g. Software Engineer" />
+                      </label>
+                      <label className="block space-y-2 text-sm font-medium text-gray-300">
+                        Company
+                        <input value={experience.company} onChange={(event) => handleExperienceChange(index, 'company', event.target.value)} className={inputClassName} placeholder="Company name" />
+                      </label>
+                      <label className="block space-y-2 text-sm font-medium text-gray-300">
+                        Responsibilities & achievements
+                        <textarea value={experience.responsibilities} onChange={(event) => handleExperienceChange(index, 'responsibilities', event.target.value)} rows={4} className={inputClassName} placeholder="Add accomplishments, one per line." />
+                      </label>
+                    </div>
+                  </div>
+                ))}
               </div>
+              <button type="button" onClick={addExperience} className="mt-4 flex items-center gap-1 text-sm font-medium text-indigo-400 hover:text-indigo-300">
+                + Add another role
+              </button>
             </section>
 
             <section className="rounded-xl border border-white/10 bg-white/5 p-6 shadow-lg">
@@ -286,20 +372,41 @@ export const CVBuilder = () => {
                 <h2 className="font-semibold text-gray-100">Education</h2>
                 <p className="mt-1 text-sm text-gray-500">Add your most relevant qualification.</p>
               </div>
-              <div className="space-y-4">
-                <label className="block space-y-2 text-sm font-medium text-gray-300">
-                  Degree
-                  <input name="degree" value={cv.degree} onChange={handleChange} className={inputClassName} placeholder="e.g. BSc Computer Science" />
-                </label>
-                <label className="block space-y-2 text-sm font-medium text-gray-300">
-                  Institution
-                  <input name="institution" value={cv.institution} onChange={handleChange} className={inputClassName} placeholder="School or university" />
-                </label>
-                <label className="block space-y-2 text-sm font-medium text-gray-300">
-                  Graduation Year <span className="font-normal text-gray-500">(optional)</span>
-                  <input name="graduationYear" value={cv.graduationYear} onChange={handleChange} className={inputClassName} placeholder="e.g. 2024" />
-                </label>
+              <div className="space-y-5">
+                {educationEntries.map((education, index) => (
+                  <div key={index} className="rounded-lg border border-white/10 bg-black/10 p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-300">Education {index + 1}</p>
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeEducation(index)}
+                          className="text-sm text-rose-400 transition-colors hover:text-rose-300"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-4">
+                      <label className="block space-y-2 text-sm font-medium text-gray-300">
+                        Degree
+                        <input value={education.degree} onChange={(event) => handleEducationChange(index, 'degree', event.target.value)} className={inputClassName} placeholder="e.g. BSc Computer Science" />
+                      </label>
+                      <label className="block space-y-2 text-sm font-medium text-gray-300">
+                        Institution
+                        <input value={education.institution} onChange={(event) => handleEducationChange(index, 'institution', event.target.value)} className={inputClassName} placeholder="School or university" />
+                      </label>
+                      <label className="block space-y-2 text-sm font-medium text-gray-300">
+                        Graduation Year <span className="font-normal text-gray-500">(optional)</span>
+                        <input value={education.year} onChange={(event) => handleEducationChange(index, 'year', event.target.value)} className={inputClassName} placeholder="e.g. 2024" />
+                      </label>
+                    </div>
+                  </div>
+                ))}
               </div>
+              <button type="button" onClick={addEducation} className="mt-4 flex items-center gap-1 text-sm font-medium text-indigo-400 hover:text-indigo-300">
+                + Add another education
+              </button>
             </section>
           </div>
 
@@ -314,14 +421,33 @@ export const CVBuilder = () => {
               {errorMessage && <p role="alert" className="text-sm text-rose-300">{errorMessage}</p>}
               {!message && !errorMessage && <p className="text-sm text-gray-500">Your profile powers personalized job matches.</p>}
             </div>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 font-medium text-white shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {isSaving ? 'Saving...' : 'Save Profile'}
-            </button>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.txt,.doc,.docx"
+                className="hidden"
+                onChange={handleFileSelected}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="mr-4 rounded-lg border border-white/10 bg-white/5 px-6 py-2 font-medium text-gray-300 transition-all hover:bg-white/10"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Import CV (PDF)
+                </span>
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 font-medium text-white shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {isSaving ? 'Saving...' : 'Save Profile'}
+              </button>
+            </div>
           </div>
         </form>
       )}
