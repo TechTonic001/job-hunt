@@ -177,6 +177,8 @@ const parseExperience = (experienceText) => {
           [company, role] = parts;
         }
       }
+      role = role.replace(/^Al(?=[-\s])/i, 'AI');
+      if (role.includes('(') && !role.includes(')')) role = role.slice(0, role.indexOf('(')).trim();
       current = { role, company, responsibilities: [] };
       return;
     }

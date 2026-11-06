@@ -231,7 +231,9 @@ export const CVBuilder = () => {
       });
       setExperiences(readExperience(data?.experience));
       setEducationEntries(readEducation(data?.education));
-      setMessage('CV imported. Review the fields and save your profile.');
+      setMessage(nameParts.length || personalInfo.name?.trim()
+        ? 'CV imported. Review the fields and save your profile.'
+        : 'CV imported, but no name was found in the document. Enter your name before saving.');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
