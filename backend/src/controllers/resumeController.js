@@ -95,8 +95,8 @@ export const importResume = async (req, res, next) => {
       return res.status(400).json({ error: 'Select a PDF or TXT CV to import.' });
     }
 
-    const text = await extractResumeText(req.file);
-    const importedResume = parseResumeText(text);
+    const { text, isOcr } = await extractResumeText(req.file);
+    const importedResume = parseResumeText(text, { isOcr });
     return res.status(200).json(importedResume);
   } catch (error) {
     return next(error);

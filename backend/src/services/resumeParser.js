@@ -71,9 +71,24 @@ const getSections = (lines) => {
   );
 };
 
-const extractNameAndTitle = (lines) => {
+const extractNameAndTitle = (lines, isOcr) => {
   const topLines = lines.slice(0, 12);
   const firstSectionIndex = topLines.findIndex((line) => sectionForLine(line));
+  if (!isOcr) {
+    const headerLines = topLines
+      .slice(0, firstSectionIndex < 0 ? topLines.length : firstSectionIndex)
+      .filter((line) => (
+        line &&
+        !/[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(line) &&
+        !/https?:\/\/|www\./i.test(line) &&
+        !/^\+?[\d\s().-]{7,}$/.test(line)
+      ));
+    return {
+      name: headerLines[0] || '',
+      title: headerLines[1] && headerLines[1].length <= 100 ? headerLines[1] : ''
+    };
+  }
+
   const headerLines = topLines
     .slice(0, firstSectionIndex < 0 ? topLines.length : firstSectionIndex)
     .filter((line) => line && !(
@@ -93,7 +108,14 @@ const extractNameAndTitle = (lines) => {
   return { name, title };
 };
 
-const extractSkills = (skillsText) => {
+const extractSkills = (skillsText, isOcr) => {
+  if (!isOcr) {
+    return skillsText
+      .split(/\n|[,;|•·]/)
+      .map((skill) => skill.replace(/^[-*]\s*/, '').trim())
+      .filter((skill) => skill && skill.length <= 80);
+  }
+
   const skills = [];
   skillsText.split(/\n|[,;|•·]/).forEach((rawSkill) => {
     let skill = rawSkill.replace(/^[-*]\s*/, '').trim();
@@ -138,10 +160,25 @@ const extractSkills = (skillsText) => {
   return skills;
 };
 
-const parseExperience = (experienceText) => {
+const parseExperience = (experienceText, isOcr) => {
   if (!experienceText) return [];
   const lines = experienceText.split('\n').filter(Boolean);
   if (!lines.length) return [];
+
+  if (!isOcr) {
+    const firstLine = lines[0];
+    const role = /^(role|position|job title)\s*:/i.test(firstLine)
+      ? firstLine.replace(/^[^:]+:\s*/, '')
+      : firstLine;
+    const companyIndex = lines.findIndex((line) => /^(company|employer)\s*:/i.test(line));
+    const company = companyIndex >= 0 ? lines[companyIndex].replace(/^[^:]+:\s*/, '') : '';
+    const responsibilities = lines.filter((_, index) => (
+      index !== 0 &&
+      index !== companyIndex &&
+      !/^(role|position|job title)\s*:/i.test(lines[index])
+    ));
+    return [{ role, company, responsibilities: responsibilities.join('\n') }];
+  }
 
   const isEntryHeading = (line) => (
     line.includes('|') ||
@@ -192,10 +229,40 @@ const parseExperience = (experienceText) => {
     .filter((entry) => entry.role || entry.company || entry.responsibilities);
 };
 
-const parseEducation = (educationText) => {
+const parseEducation = (educationText, isOcr) => {
   if (!educationText) return [];
   const lines = educationText.split('\n').filter(Boolean);
   if (!lines.length) return [];
+
+  if (!isOcr) {
+    const entry = { degree: '', institution: '', year: '' };
+    const detailLines = [];
+    lines.forEach((line) => {
+      const separatorIndex = line.indexOf(':');
+      if (separatorIndex >= 0) {
+        const label = line.slice(0, separatorIndex).trim().toLowerCase();
+        const value = line.slice(separatorIndex + 1).trim();
+        if (label === 'degree' || label === 'qualification') entry.degree = value;
+        else if (label === 'institution' || label === 'school' || label === 'university') entry.institution = value;
+        else if (label === 'year' || label === 'graduation year') entry.year = value;
+        else detailLines.push(line);
+        return;
+      }
+
+      const year = line.match(/\b(?:19|20)\d{2}\b/);
+      if (year && !entry.year) {
+        entry.year = year[0];
+        const withoutYear = line.replace(year[0], '').replace(/[-–,|]/g, ' ').trim();
+        if (withoutYear) detailLines.push(withoutYear);
+      } else {
+        detailLines.push(line);
+      }
+    });
+
+    if (!entry.degree && detailLines.length) entry.degree = detailLines.shift();
+    if (!entry.institution && detailLines.length) entry.institution = detailLines.join(' ');
+    return entry.degree || entry.institution || entry.year ? [entry] : [];
+  }
 
   const entry = { degree: '', institution: '', year: '' };
   const detailLines = [];
@@ -291,7 +358,7 @@ const extractFallbackText = (text, lines) => {
     .trim();
 };
 
-export const parseResumeText = (rawText) => {
+export const parseResumeText = (rawText, { isOcr = false } = {}) => {
   const text = normalizeText(rawText);
   if (!text) {
     const error = new Error('No resume text could be recognized. Try a clearer scan or a text-based PDF.');
@@ -301,7 +368,7 @@ export const parseResumeText = (rawText) => {
 
   const lines = text.split('\n');
   const sections = getSections(lines);
-  const { name, title } = extractNameAndTitle(lines);
+  const { name, title } = extractNameAndTitle(lines, isOcr);
   const email = text.match(/[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i)?.[0] || '';
   const phone = text.match(/(?:\+\d{1,3}[\s().-]*)?(?:\(?\d{2,4}\)?[\s.-]*)?\d[\d\s().-]{6,}\d/)?.[0]?.trim() || '';
   const summary = sections.summary || (
@@ -313,15 +380,15 @@ export const parseResumeText = (rawText) => {
   return {
     personalInfo: { name, email, phone, title },
     summary,
-    skills: extractSkills(sections.skills),
-    experience: parseExperience(sections.experience),
-    education: parseEducation(sections.education)
+    skills: extractSkills(sections.skills, isOcr),
+    experience: parseExperience(sections.experience, isOcr),
+    education: parseEducation(sections.education, isOcr)
   };
 };
 
 export const extractResumeText = async (file) => {
   if (file.mimetype === 'text/plain' || /\.txt$/i.test(file.originalname)) {
-    return normalizeText(file.buffer.toString('utf8'));
+    return { text: normalizeText(file.buffer.toString('utf8')), isOcr: false };
   }
 
   if (!file.buffer.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
@@ -334,7 +401,7 @@ export const extractResumeText = async (file) => {
   try {
     const result = await parser.getText();
     const text = normalizeText(result.text || '');
-    if (text.length >= 100) return text;
+    if (text.length >= 100) return { text, isOcr: false };
 
     const screenshots = await parser.getScreenshot({
       scale: 2,
@@ -349,7 +416,7 @@ export const extractResumeText = async (file) => {
     }
 
     const ocrText = normalizeText(recognizedPages.join('\n'));
-    return ocrText || text;
+    return { text: ocrText || text, isOcr: true };
   } finally {
     await parser.destroy();
   }
