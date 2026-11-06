@@ -107,9 +107,15 @@ const buildDoc = (resume, dataCallback, endCallback) => {
           .text(exp.location, leftMargin);
       }
 
-      if (Array.isArray(exp.bulletPoints) && exp.bulletPoints.length > 0) {
+      const responsibilities = Array.isArray(exp.bulletPoints)
+        ? exp.bulletPoints
+        : typeof exp.responsibilities === 'string'
+          ? exp.responsibilities.split('\n').map((point) => point.trim()).filter(Boolean)
+          : [];
+
+      if (responsibilities.length > 0) {
         doc.moveDown(0.2);
-        exp.bulletPoints.forEach((point) => {
+        responsibilities.forEach((point) => {
           doc
             .font('Helvetica')
             .fontSize(10)
@@ -137,12 +143,13 @@ const buildDoc = (resume, dataCallback, endCallback) => {
         .fillColor('#111827')
         .text(degreeText, leftMargin, startY, { width: contentWidth - 100 });
 
-      if (edu.graduationYear) {
+      const graduationYear = edu.year || edu.graduationYear;
+      if (graduationYear) {
         doc
           .font('Helvetica')
           .fontSize(9.5)
           .fillColor('#4b5563')
-          .text(String(edu.graduationYear), rightMargin - 90, startY, {
+          .text(String(graduationYear), rightMargin - 90, startY, {
             width: 90,
             align: 'right'
           });

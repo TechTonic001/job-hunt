@@ -179,11 +179,11 @@ export const CVBuilder = () => {
 
   const handleFileSelected = (event) => {
     const file = event.target.files?.[0];
-    if (file) console.log('File selected:', file.name);
+    if (file) console.log('File selected:', file);
     event.target.value = '';
   };
 
-  const handleSubmit = async (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     setIsSaving(true);
     setMessage('');
@@ -193,31 +193,33 @@ export const CVBuilder = () => {
       .map((entry) => ({
         role: entry.role.trim(),
         company: entry.company.trim(),
-        bulletPoints: entry.responsibilities.split('\n').map((line) => line.trim()).filter(Boolean)
+        responsibilities: entry.responsibilities.trim()
       }))
-      .filter((entry) => entry.role || entry.company || entry.bulletPoints.length > 0);
+      .filter((entry) => entry.role || entry.company || entry.responsibilities);
     const education = educationEntries
-      .map((entry) => [
-        entry.degree.trim() ? `Degree: ${entry.degree.trim()}` : '',
-        entry.institution.trim() ? `Institution: ${entry.institution.trim()}` : '',
-        entry.year.trim() ? `Graduation year: ${entry.year.trim()}` : ''
-      ].filter(Boolean).join('\n'))
-      .filter(Boolean)
-      .join('\n\n');
+      .map((entry) => ({
+        degree: entry.degree.trim(),
+        institution: entry.institution.trim(),
+        year: entry.year.trim()
+      }))
+      .filter((entry) => entry.degree || entry.institution || entry.year);
+
+    const payload = {
+      personalInfo: {
+        name: [cv.firstName, cv.lastName].map((name) => name.trim()).filter(Boolean).join(' '),
+        email: cv.email.trim(),
+        phone: cv.phone.trim(),
+        title: cv.title.trim()
+      },
+      skills: cv.skills.split(',').map((skill) => skill.trim()).filter(Boolean),
+      summary: cv.summary.trim(),
+      experience,
+      education
+    };
 
     try {
-      await axiosClient.post('/api/resumes', {
-        personalInfo: {
-          name: [cv.firstName, cv.lastName].map((name) => name.trim()).filter(Boolean).join(' '),
-          email: cv.email.trim(),
-          phone: cv.phone.trim(),
-          title: cv.title.trim()
-        },
-        skills: cv.skills.split(',').map((skill) => skill.trim()).filter(Boolean),
-        summary: cv.summary.trim(),
-        experience: experience.length ? experience : '',
-        education
-      });
+      console.log('Payload sending:', payload);
+      await axiosClient.post('/api/resumes', payload);
       setMessage('Your profile has been saved.');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -251,7 +253,7 @@ export const CVBuilder = () => {
           Loading your profile...
         </div>
       ) : (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSave}>
           <div className="grid gap-5 lg:grid-cols-2">
             <section className="rounded-xl border border-white/10 bg-white/5 p-6 shadow-lg">
               <div className="mb-6 flex items-center gap-3">

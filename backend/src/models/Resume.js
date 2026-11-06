@@ -1,5 +1,23 @@
 import mongoose from 'mongoose';
 
+const experienceSchema = new mongoose.Schema(
+  {
+    role: { type: String, default: '' },
+    company: { type: String, default: '' },
+    responsibilities: { type: String, default: '' }
+  },
+  { _id: false }
+);
+
+const educationSchema = new mongoose.Schema(
+  {
+    degree: { type: String, default: '' },
+    institution: { type: String, default: '' },
+    year: { type: String, default: '' }
+  },
+  { _id: false }
+);
+
 const resumeSchema = new mongoose.Schema(
   {
     userId: {
@@ -22,14 +40,8 @@ const resumeSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
-    experience: {
-      type: mongoose.Schema.Types.Mixed,
-      default: ''
-    },
-    education: {
-      type: String,
-      default: ''
-    }
+    experience: { type: [experienceSchema], default: [] },
+    education: { type: [educationSchema], default: [] }
   },
   { timestamps: true }
 );
