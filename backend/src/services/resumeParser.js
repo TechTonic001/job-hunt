@@ -282,6 +282,16 @@ const parseEducation = (educationText, isOcr) => {
     if (year && !entry.year) {
       entry.year = year[0];
     }
+    if (
+      isOcr &&
+      entry.degree &&
+      /\b(?:in|of|for)\s*$/i.test(entry.degree) &&
+      !year &&
+      !/\b(?:university|college|institute|polytechnic|school)\b/i.test(line)
+    ) {
+      entry.degree = `${entry.degree} ${line}`.trim();
+      return;
+    }
     if (/\b(?:university|college|institute|polytechnic|school)\b/i.test(line)) {
       const institutionStart = line.search(/\b(?:[A-Z][A-Za-z&.'-]*\s+)?(?:university|college|institute|polytechnic|school)\b/i);
       entry.institution = (institutionStart >= 0 ? line.slice(institutionStart) : line)
@@ -296,61 +306,48 @@ const parseEducation = (educationText, isOcr) => {
   return entry.degree || entry.institution || entry.year ? [entry] : [];
 };
 
-const getOcrColumnText = (tsv, image, includeHeader) => {
-  const lines = new Map();
-  const splitX = Buffer.from(image).readUInt32BE(16) * 0.54;
-  tsv.split(/\r?\n/).slice(1).forEach((row) => {
-    const columns = row.split('\t');
-    if (columns.length < 12 || Number(columns[0]) !== 5 || !columns[11]) return;
-
-    const key = columns.slice(1, 5).join(':');
-    const left = Number(columns[6]);
-    const top = Number(columns[7]);
-    const word = { left, text: columns[11] };
-    const line = lines.get(key) || { top, words: [] };
-    line.words.push(word);
-    lines.set(key, line);
-  });
-
-  const ocrLines = [...lines.values()].map(({ top, words }) => {
-    const sortedWords = words.sort((first, second) => first.left - second.left);
-    return {
-      top,
-      fullText: sortedWords.map(({ text }) => text).join(' '),
-      leftText: sortedWords.filter(({ left }) => left < splitX).map(({ text }) => text).join(' '),
-      rightText: sortedWords.filter(({ left }) => left >= splitX).map(({ text }) => text).join(' ')
-    };
-  }).sort((first, second) => first.top - second.top);
-
-  const firstSectionLine = ocrLines.findIndex(({ leftText, rightText }) => (
-    sectionForLine(leftText) || sectionForLine(rightText)
-  ));
-  if (firstSectionLine < 0) {
-    if (includeHeader) return ocrLines.map(({ fullText }) => fullText).join('\n');
-    return [
-      ...ocrLines.map(({ leftText }) => leftText).filter(Boolean),
-      ...ocrLines.map(({ rightText }) => rightText).filter(Boolean)
-    ].join('\n');
-  }
-
-  const header = includeHeader
-    ? ocrLines.slice(0, firstSectionLine).map(({ fullText }) => fullText)
-    : [];
-  const leftColumn = ocrLines.slice(firstSectionLine).map(({ leftText }) => leftText).filter(Boolean);
-  const rightColumn = ocrLines.slice(firstSectionLine).map(({ rightText }) => rightText).filter(Boolean);
-  const educationHeading = rightColumn.findIndex((line) => sectionForLine(line) === 'education');
-  if (educationHeading < 0) {
-    const institutionIndex = rightColumn.findIndex((line) => /\b(?:university|college|institute|polytechnic)\b/i.test(line));
-    if (institutionIndex >= 0) {
-      const educationStart = Math.max(0, institutionIndex - 2);
-      const educationLines = rightColumn.slice(educationStart, institutionIndex + 2).filter((line) => (
-        /\b(?:university|college|institute|polytechnic|bachelor|b\.?sc|master|m\.?sc|diploma|hnd|computer|19\d{2}|20\d{2}|nigeria)\b/i.test(line)
-      ));
-      rightColumn.splice(educationStart, rightColumn.length - educationStart, 'EDUCATION', ...educationLines);
+const extractOcrPageText = async (worker, page, pageIndex) => {
+  const image = Buffer.from(page.data);
+  const width = image.readUInt32BE(16);
+  const height = image.readUInt32BE(20);
+  const bodyTop = Math.round(height * 0.18);
+  const bodyHeight = height - bodyTop;
+  const regions = [
+    ...(pageIndex === 0
+      ? [{
+        rectangle: {
+          left: Math.round(width * 0.05),
+          top: Math.round(height * 0.065),
+          width: Math.round(width * 0.9),
+          height: Math.round(height * 0.12)
+        }
+      }]
+      : []),
+    {
+      rectangle: {
+        left: Math.round(width * 0.075),
+        top: bodyTop,
+        width: Math.round(width * 0.595),
+        height: bodyHeight
+      }
+    },
+    {
+      rectangle: {
+        left: Math.round(width * 0.675),
+        top: bodyTop,
+        width: Math.round(width * 0.285),
+        height: bodyHeight
+      }
     }
+  ];
+  const textRegions = [];
+
+  for (const { rectangle } of regions) {
+    const result = await worker.recognize(image, { rectangle }, { text: true });
+    textRegions.push(result.data.text);
   }
 
-  return [...header, ...leftColumn, ...rightColumn].join('\n');
+  return textRegions.join('\n');
 };
 
 const extractFallbackText = (text, lines) => {
@@ -417,8 +414,7 @@ export const extractResumeText = async (file) => {
     const worker = await getOcrWorker();
     const recognizedPages = [];
     for (const [index, page] of screenshots.pages.entries()) {
-      const { data } = await worker.recognize(page.data, {}, { text: true, tsv: true });
-      recognizedPages.push(data.tsv ? getOcrColumnText(data.tsv, page.data, index === 0) : data.text);
+      recognizedPages.push(await extractOcrPageText(worker, page, index));
     }
 
     const ocrText = normalizeText(recognizedPages.join('\n'));
