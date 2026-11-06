@@ -298,6 +298,7 @@ const parseEducation = (educationText, isOcr) => {
 
 const getOcrColumnText = (tsv, image, includeHeader) => {
   const lines = new Map();
+  const splitX = Buffer.from(image).readUInt32BE(16) * 0.54;
   tsv.split(/\r?\n/).slice(1).forEach((row) => {
     const columns = row.split('\t');
     if (columns.length < 12 || Number(columns[0]) !== 5 || !columns[11]) return;
@@ -313,7 +314,6 @@ const getOcrColumnText = (tsv, image, includeHeader) => {
 
   const ocrLines = [...lines.values()].map(({ top, words }) => {
     const sortedWords = words.sort((first, second) => first.left - second.left);
-    const splitX = Buffer.from(image).readUInt32BE(16) * 0.54;
     return {
       top,
       fullText: sortedWords.map(({ text }) => text).join(' '),
@@ -325,7 +325,13 @@ const getOcrColumnText = (tsv, image, includeHeader) => {
   const firstSectionLine = ocrLines.findIndex(({ leftText, rightText }) => (
     sectionForLine(leftText) || sectionForLine(rightText)
   ));
-  if (firstSectionLine < 0) return ocrLines.map(({ fullText }) => fullText).join('\n');
+  if (firstSectionLine < 0) {
+    if (includeHeader) return ocrLines.map(({ fullText }) => fullText).join('\n');
+    return [
+      ...ocrLines.map(({ leftText }) => leftText).filter(Boolean),
+      ...ocrLines.map(({ rightText }) => rightText).filter(Boolean)
+    ].join('\n');
+  }
 
   const header = includeHeader
     ? ocrLines.slice(0, firstSectionLine).map(({ fullText }) => fullText)
