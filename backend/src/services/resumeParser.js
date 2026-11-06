@@ -1,4 +1,31 @@
+import { createRequire } from 'node:module';
 import { PDFParse } from 'pdf-parse';
+import { OEM, createWorker } from 'tesseract.js';
+
+const require = createRequire(import.meta.url);
+const englishOcrData = require('@tesseract.js-data/eng');
+let ocrWorkerPromise;
+
+const getOcrWorker = () => {
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = createWorker(englishOcrData.code, OEM.LSTM_ONLY, {
+      langPath: englishOcrData.langPath,
+      gzip: englishOcrData.gzip,
+      cacheMethod: 'none'
+    }).catch((error) => {
+      ocrWorkerPromise = undefined;
+      throw error;
+    });
+  }
+  return ocrWorkerPromise;
+};
+
+export const shutdownResumeOcrWorker = async () => {
+  if (!ocrWorkerPromise) return;
+  const worker = await ocrWorkerPromise;
+  ocrWorkerPromise = undefined;
+  await worker.terminate();
+};
 
 const SECTION_PATTERNS = [
   ['summary', /^(?:(?:professional|career|profile)\s+)?(?:summary|profile|objective|about\s+me)$/i],
@@ -135,7 +162,7 @@ const extractFallbackText = (text, lines) => {
 export const parseResumeText = (rawText) => {
   const text = normalizeText(rawText);
   if (!text) {
-    const error = new Error('No readable text was found in the CV. Scanned PDFs may need OCR before import.');
+    const error = new Error('No resume text could be recognized. Try a clearer scan or a text-based PDF.');
     error.status = 422;
     throw error;
   }
@@ -174,7 +201,23 @@ export const extractResumeText = async (file) => {
   const parser = new PDFParse({ data: file.buffer });
   try {
     const result = await parser.getText();
-    return normalizeText(result.text || '');
+    const text = normalizeText(result.text || '');
+    if (text.length >= 100) return text;
+
+    const screenshots = await parser.getScreenshot({
+      scale: 2,
+      imageDataUrl: false,
+      imageBuffer: true
+    });
+    const worker = await getOcrWorker();
+    const recognizedPages = [];
+    for (const page of screenshots.pages) {
+      const { data } = await worker.recognize(page.data);
+      recognizedPages.push(data.text);
+    }
+
+    const ocrText = normalizeText(recognizedPages.join('\n'));
+    return ocrText || text;
   } finally {
     await parser.destroy();
   }

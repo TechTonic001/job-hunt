@@ -194,6 +194,29 @@ export const CVBuilder = () => {
         headers: { 'Content-Type': false }
       });
       const personalInfo = data?.personalInfo || {};
+      const hasImportedContent = [
+        personalInfo.name,
+        personalInfo.email,
+        personalInfo.phone,
+        personalInfo.title,
+        data?.summary
+      ].some((value) => typeof value === 'string' && value.trim())
+        || (Array.isArray(data?.skills) && data.skills.some((skill) => typeof skill === 'string' && skill.trim()))
+        || (Array.isArray(data?.experience) && data.experience.some((entry) => (
+          typeof entry === 'string'
+            ? entry.trim()
+            : entry && Object.values(entry).some((value) => typeof value === 'string' && value.trim())
+        )))
+        || (Array.isArray(data?.education) && data.education.some((entry) => (
+          typeof entry === 'string'
+            ? entry.trim()
+            : entry && Object.values(entry).some((value) => typeof value === 'string' && value.trim())
+        )));
+
+      if (!hasImportedContent) {
+        throw new Error('No resume details could be recognized. Try a clearer scan or a text-based PDF.');
+      }
+
       const nameParts = (personalInfo.name || '').trim().split(/\s+/).filter(Boolean);
 
       setCv({

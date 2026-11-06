@@ -17,6 +17,7 @@ import connectDB from './config/db.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
+import { shutdownResumeOcrWorker } from './services/resumeParser.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5001;
@@ -120,8 +121,15 @@ server.on('error', (err) => {
 const gracefulShutdown = (signal) => {
   logger.info(`Received ${signal}. Shutting down gracefully...`);
   server.close(() => {
-    logger.info('HTTP server closed.');
-    process.exit(0);
+    shutdownResumeOcrWorker()
+      .then(() => {
+        logger.info('HTTP server closed.');
+        process.exit(0);
+      })
+      .catch((error) => {
+        logger.error({ err: error }, 'Failed to stop resume OCR worker cleanly.');
+        process.exit(1);
+      });
   });
 
   // Force shutdown after timeout if pending connections don't close
