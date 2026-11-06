@@ -41,13 +41,16 @@ const getSections = (lines) => {
 };
 
 const extractNameAndTitle = (lines) => {
-  const headerLines = lines.slice(0, 12).filter((line) => (
+  const topLines = lines.slice(0, 12);
+  const firstSectionIndex = topLines.findIndex((line) => sectionForLine(line));
+  const headerLines = topLines
+    .slice(0, firstSectionIndex < 0 ? topLines.length : firstSectionIndex)
+    .filter((line) => (
     line &&
-    !sectionForLine(line) &&
     !/[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i.test(line) &&
     !/https?:\/\/|www\./i.test(line) &&
     !/^\+?[\d\s().-]{7,}$/.test(line)
-  ));
+    ));
 
   return {
     name: headerLines[0] || '',
@@ -68,13 +71,17 @@ const parseExperience = (experienceText) => {
   const firstLine = lines[0];
   const role = /^(role|position|job title)\s*:/i.test(firstLine)
     ? firstLine.replace(/^[^:]+:\s*/, '')
-    : '';
+    : firstLine;
   const companyIndex = lines.findIndex((line) => /^(company|employer)\s*:/i.test(line));
   const company = companyIndex >= 0 ? lines[companyIndex].replace(/^[^:]+:\s*/, '') : '';
-  const remainingLines = lines.filter((_, index) => index !== 0 && index !== companyIndex);
+  const remainingLines = lines.filter((_, index) => (
+    index !== 0 &&
+    index !== companyIndex &&
+    !/^(role|position|job title)\s*:/i.test(lines[index])
+  ));
   const responsibilities = remainingLines.length
     ? remainingLines.join('\n')
-    : (role || company ? '' : experienceText);
+    : '';
 
   return [{ role, company, responsibilities }];
 };
