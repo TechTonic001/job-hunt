@@ -95,6 +95,7 @@ export const CVBuilder = () => {
   const [educationEntries, setEducationEntries] = useState([createEducation()]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const fileInputRef = useRef(null);
@@ -177,10 +178,46 @@ export const CVBuilder = () => {
     setErrorMessage('');
   };
 
-  const handleFileSelected = (event) => {
+  const handleFileSelected = async (event) => {
     const file = event.target.files?.[0];
-    if (file) console.log('File selected:', file);
     event.target.value = '';
+    if (!file) return;
+
+    setIsImporting(true);
+    setMessage('');
+    setErrorMessage('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data } = await axiosClient.post('/api/resumes/import', formData);
+      const personalInfo = data?.personalInfo || {};
+      const nameParts = (personalInfo.name || '').trim().split(/\s+/).filter(Boolean);
+
+      setCv((current) => ({
+        ...current,
+        firstName: nameParts.length ? nameParts.shift() : current.firstName,
+        lastName: nameParts.length ? nameParts.join(' ') : current.lastName,
+        email: personalInfo.email || current.email,
+        phone: personalInfo.phone || current.phone,
+        title: personalInfo.title || current.title,
+        skills: Array.isArray(data?.skills) && data.skills.length
+          ? data.skills.join(', ')
+          : current.skills,
+        summary: data?.summary || current.summary
+      }));
+      if (Array.isArray(data?.experience) && data.experience.length) {
+        setExperiences(readExperience(data.experience));
+      }
+      if (Array.isArray(data?.education) && data.education.length) {
+        setEducationEntries(readEducation(data.education));
+      }
+      setMessage('CV imported. Review the fields and save your profile.');
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleSave = async (event) => {
@@ -427,18 +464,19 @@ export const CVBuilder = () => {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.txt,.doc,.docx"
+                accept=".pdf,.txt,application/pdf,text/plain"
                 className="hidden"
                 onChange={handleFileSelected}
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
                 className="mr-4 rounded-lg border border-white/10 bg-white/5 px-6 py-2 font-medium text-gray-300 transition-all hover:bg-white/10"
               >
                 <span className="inline-flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  Import CV (PDF)
+                  {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {isImporting ? 'Importing...' : 'Import CV (PDF)'}
                 </span>
               </button>
               <button
