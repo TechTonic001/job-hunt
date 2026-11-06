@@ -1,10 +1,10 @@
 import { PDFParse } from 'pdf-parse';
 
 const SECTION_PATTERNS = [
-  ['summary', /^(professional\s+)?(summary|profile|objective|about\s+me)$/i],
-  ['skills', /^(core\s+)?(technical\s+)?skills|^(areas?\s+of\s+expertise)$/i],
-  ['experience', /^(professional\s+)?(work\s+)?experience|^(employment|career)\s+(history|experience)$/i],
-  ['education', /^(education|academic\s+background|qualifications?)$/i]
+  ['summary', /^(?:(?:professional|career|profile)\s+)?(?:summary|profile|objective|about\s+me)$/i],
+  ['skills', /^(?:(?:(?:core|technical|key)\s+)?skills(?:\s+and\s+competencies)?|areas?\s+of\s+expertise)$/i],
+  ['experience', /^(?:(?:(?:professional|work)\s+)?experience|(?:employment|career)\s+(?:history|experience))$/i],
+  ['education', /^(?:education|academic\s+background|educational\s+qualifications?|qualifications?)$/i]
 ];
 
 const normalizeText = (text) => text
@@ -120,6 +120,17 @@ const parseEducation = (educationText) => {
   return entry.degree || entry.institution || entry.year ? [entry] : [];
 };
 
+const extractFallbackText = (text, lines) => {
+  const firstSectionIndex = lines.findIndex((line) => sectionForLine(line));
+  if (firstSectionIndex >= 0) return '';
+
+  const header = extractNameAndTitle(lines);
+  return text
+    .replace(header.name, '')
+    .replace(header.title, '')
+    .trim();
+};
+
 export const parseResumeText = (rawText) => {
   const text = normalizeText(rawText);
   if (!text) {
@@ -133,10 +144,15 @@ export const parseResumeText = (rawText) => {
   const { name, title } = extractNameAndTitle(lines);
   const email = text.match(/[\w.+-]+@[\w.-]+\.[A-Z]{2,}/i)?.[0] || '';
   const phone = text.match(/(?:\+\d{1,3}[\s().-]*)?(?:\(?\d{2,4}\)?[\s.-]*)?\d[\d\s().-]{6,}\d/)?.[0]?.trim() || '';
+  const summary = sections.summary || (
+    !sections.skills && !sections.experience && !sections.education
+      ? extractFallbackText(text, lines)
+      : ''
+  );
 
   return {
     personalInfo: { name, email, phone, title },
-    summary: sections.summary,
+    summary,
     skills: extractSkills(sections.skills),
     experience: parseExperience(sections.experience),
     education: parseEducation(sections.education)
@@ -146,6 +162,12 @@ export const parseResumeText = (rawText) => {
 export const extractResumeText = async (file) => {
   if (file.mimetype === 'text/plain' || /\.txt$/i.test(file.originalname)) {
     return normalizeText(file.buffer.toString('utf8'));
+  }
+
+  if (!file.buffer.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+    const error = new Error('The selected file is not a valid PDF.');
+    error.status = 400;
+    throw error;
   }
 
   const parser = new PDFParse({ data: file.buffer });
