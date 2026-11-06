@@ -1,4 +1,5 @@
 import Resume from '../models/Resume.js';
+import { extractResumeText, parseResumeText } from '../services/resumeParser.js';
 
 const getUserId = (req) => req.user?.id || req.user?._id || req.user?.uid;
 
@@ -88,6 +89,20 @@ export const getResume = async (req, res, next) => {
   }
 };
 
+export const importResume = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Select a PDF or TXT CV to import.' });
+    }
+
+    const text = await extractResumeText(req.file);
+    const importedResume = parseResumeText(text);
+    return res.status(200).json(importedResume);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const saveResume = async (req, res, next) => {
   try {
     const userId = getUserId(req);
@@ -159,4 +174,4 @@ export const saveResume = async (req, res, next) => {
   }
 };
 
-export default { getResume, saveResume };
+export default { getResume, importResume, saveResume };
