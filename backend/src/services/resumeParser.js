@@ -106,11 +106,17 @@ const extractSkills = (skillsText) => {
     if (/\b(?:like|to)\s+/i.test(skill)) {
       skill = skill.slice(skill.search(/\b(?:like|to)\s+/i)).replace(/^(?:like|to)\s+/i, '').trim();
     }
-    skill = skill.replace(/^(?:EE|Al)\s+/i, '').replace(/\s+/g, ' ').trim();
-    if (!skill || skill.length > 80 || /\b(?:the|that|with|about|passionate|problems|demonstrated|ability|environment|ultimate|goal)\b/i.test(skill)) {
+    skill = skill.replace(/^EE\s+/i, '').replace(/^Al(?=\s|$)/i, 'AI').replace(/\s+/g, ' ').trim();
+    if (
+      !skill ||
+      skill.length > 80 ||
+      !/[A-Z]/.test(skill) ||
+      /\b(?:the|that|with|about|passionate|problems|demonstrated|ability|environment|ultimate|goal|in|code|review|ensure|performance|reliability|version|control|completed|computer)\b/i.test(skill) ||
+      /\b(?:19|20)\d{2}\b/.test(skill)
+    ) {
       return;
     }
-    if (/^\d|[.!?]$/.test(skill) || skill.split(/\s+/).length > 5) return;
+    if (skill.length < 2 || /^\d|[.!?]$/.test(skill) || skill.split(/\s+/).length > 5) return;
 
     skill = skill
       .replace(/\bReact\s+js\b/i, 'React.js')
@@ -118,7 +124,8 @@ const extractSkills = (skillsText) => {
       .replace(/\bPeystack\b/i, 'Paystack')
       .replace(/\bNodomailer\b/i, 'Nodemailer')
       .replace(/\bReacts\b/i, 'React.js')
-      .replace(/^Al\b/i, 'AI');
+      .replace(/^Al\b/i, 'AI')
+      .replace(/\bCursor\s+Al\b/i, 'Cursor AI');
     const previousSkill = skills.at(-1);
     if (/^ORM$/i.test(skill) && /^Prisma$/i.test(previousSkill || '')) {
       skills[skills.length - 1] = 'Prisma ORM';
@@ -138,13 +145,15 @@ const parseExperience = (experienceText) => {
 
   const isEntryHeading = (line) => (
     line.includes('|') ||
+    /^[A-Z]/.test(line) &&
     /\b(?:intern|engineer|developer|application|platform|system|project|tool|product|consultant|manager)\b/i.test(line)
   );
   const entries = [];
   let current = null;
 
   lines.forEach((line) => {
-    const cleanedLine = line.replace(/^[\s•·*-]+/, '').trim();
+    const isBullet = /^[\s•·*+\-«»]+/.test(line);
+    const cleanedLine = line.replace(/^[\s•·*+\-«»]+/, '').trim();
     if (!cleanedLine) return;
     const labeledRole = cleanedLine.match(/^(?:role|position|job title)\s*:\s*(.+)$/i);
     const labeledCompany = cleanedLine.match(/^(?:company|employer)\s*:\s*(.+)$/i);
@@ -152,7 +161,7 @@ const parseExperience = (experienceText) => {
       current.company = labeledCompany[1].trim();
       return;
     }
-    if (labeledRole || isEntryHeading(cleanedLine)) {
+    if (labeledRole || (!isBullet && isEntryHeading(cleanedLine))) {
       if (current) entries.push(current);
       const heading = labeledRole ? labeledRole[1] : cleanedLine;
       const parts = heading.split('|').map((part) => part.trim()).filter(Boolean);
@@ -203,7 +212,10 @@ const parseEducation = (educationText) => {
     if (year && !entry.year) {
       entry.year = year[0];
     }
-    if (/\b(?:university|college|institute|polytechnic|school)\b/i.test(line)) entry.institution = line;
+    if (/\b(?:university|college|institute|polytechnic|school)\b/i.test(line)) {
+      const institutionStart = line.search(/\b(?:[A-Z][A-Za-z&.'-]*\s+)?(?:university|college|institute|polytechnic|school)\b/i);
+      entry.institution = institutionStart >= 0 ? line.slice(institutionStart).trim() : line;
+    }
     if (/\b(?:bachelor|b\.?sc|master|m\.?sc|diploma|hnd|b\.?eng|ph\.?d|degree)\b/i.test(line)) entry.degree = line;
     detailLines.push(line);
   });
@@ -229,7 +241,7 @@ const getOcrColumnText = (tsv, image) => {
 
   const ocrLines = [...lines.values()].map(({ top, words }) => {
     const sortedWords = words.sort((first, second) => first.left - second.left);
-    const splitX = Buffer.from(image).readUInt32BE(16) / 2;
+    const splitX = Buffer.from(image).readUInt32BE(16) * 0.54;
     return {
       top,
       fullText: sortedWords.map(({ text }) => text).join(' '),
@@ -250,10 +262,11 @@ const getOcrColumnText = (tsv, image) => {
   if (educationHeading < 0) {
     const institutionIndex = rightColumn.findIndex((line) => /\b(?:university|college|institute|polytechnic)\b/i.test(line));
     if (institutionIndex >= 0) {
-      const educationLines = rightColumn.slice(institutionIndex).filter((line) => (
-        /\b(?:university|college|institute|polytechnic|bachelor|b\.?sc|master|m\.?sc|diploma|hnd|19\d{2}|20\d{2}|nigeria)\b/i.test(line)
+      const educationStart = Math.max(0, institutionIndex - 2);
+      const educationLines = rightColumn.slice(educationStart, institutionIndex + 2).filter((line) => (
+        /\b(?:university|college|institute|polytechnic|bachelor|b\.?sc|master|m\.?sc|diploma|hnd|computer|19\d{2}|20\d{2}|nigeria)\b/i.test(line)
       ));
-      rightColumn.splice(institutionIndex, rightColumn.length - institutionIndex, 'EDUCATION', ...educationLines);
+      rightColumn.splice(educationStart, rightColumn.length - educationStart, 'EDUCATION', ...educationLines);
     }
   }
 
