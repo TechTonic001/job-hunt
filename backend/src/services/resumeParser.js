@@ -217,7 +217,9 @@ const parseEducation = (educationText) => {
     }
     if (/\b(?:university|college|institute|polytechnic|school)\b/i.test(line)) {
       const institutionStart = line.search(/\b(?:[A-Z][A-Za-z&.'-]*\s+)?(?:university|college|institute|polytechnic|school)\b/i);
-      entry.institution = institutionStart >= 0 ? line.slice(institutionStart).trim() : line;
+      entry.institution = (institutionStart >= 0 ? line.slice(institutionStart) : line)
+        .replace(/^Ql\s+(?=College of ICT\b)/i, 'SQI ')
+        .trim();
     }
     if (/\b(?:bachelor|b\.?sc|master|m\.?sc|diploma|hnd|b\.?eng|ph\.?d|degree)\b/i.test(line)) entry.degree = line;
     detailLines.push(line);
