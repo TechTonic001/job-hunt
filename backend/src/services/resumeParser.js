@@ -110,7 +110,7 @@ const extractSkills = (skillsText) => {
     if (
       !skill ||
       skill.length > 80 ||
-      !/[A-Z]/.test(skill) ||
+      (!/^[A-Z]/.test(skill) && !/[.+/#]/.test(skill)) ||
       /\b(?:the|that|with|about|passionate|problems|demonstrated|ability|environment|ultimate|goal|in|code|review|ensure|performance|reliability|version|control|completed|computer)\b/i.test(skill) ||
       /\b(?:19|20)\d{2}\b/.test(skill)
     ) {
@@ -146,6 +146,7 @@ const parseExperience = (experienceText) => {
   const isEntryHeading = (line) => (
     line.includes('|') ||
     /^[A-Z]/.test(line) &&
+    !/^(?:architected|built|collaborated|created|defended|delivered|designed|developed|engineered|formulated|gained|implemented|integrated|launched|led|managed|maintained|participated|supported|worked|wrote)\b/i.test(line) &&
     /\b(?:intern|engineer|developer|application|platform|system|project|tool|product|consultant|manager)\b/i.test(line)
   );
   const entries = [];
@@ -224,7 +225,7 @@ const parseEducation = (educationText) => {
   return entry.degree || entry.institution || entry.year ? [entry] : [];
 };
 
-const getOcrColumnText = (tsv, image) => {
+const getOcrColumnText = (tsv, image, includeHeader) => {
   const lines = new Map();
   tsv.split(/\r?\n/).slice(1).forEach((row) => {
     const columns = row.split('\t');
@@ -255,7 +256,9 @@ const getOcrColumnText = (tsv, image) => {
   ));
   if (firstSectionLine < 0) return ocrLines.map(({ fullText }) => fullText).join('\n');
 
-  const header = ocrLines.slice(0, firstSectionLine).map(({ fullText }) => fullText);
+  const header = includeHeader
+    ? ocrLines.slice(0, firstSectionLine).map(({ fullText }) => fullText)
+    : [];
   const leftColumn = ocrLines.slice(firstSectionLine).map(({ leftText }) => leftText).filter(Boolean);
   const rightColumn = ocrLines.slice(firstSectionLine).map(({ rightText }) => rightText).filter(Boolean);
   const educationHeading = rightColumn.findIndex((line) => sectionForLine(line) === 'education');
@@ -336,9 +339,9 @@ export const extractResumeText = async (file) => {
     });
     const worker = await getOcrWorker();
     const recognizedPages = [];
-    for (const page of screenshots.pages) {
+    for (const [index, page] of screenshots.pages.entries()) {
       const { data } = await worker.recognize(page.data, {}, { text: true, tsv: true });
-      recognizedPages.push(data.tsv ? getOcrColumnText(data.tsv, page.data) : data.text);
+      recognizedPages.push(data.tsv ? getOcrColumnText(data.tsv, page.data, index === 0) : data.text);
     }
 
     const ocrText = normalizeText(recognizedPages.join('\n'));
