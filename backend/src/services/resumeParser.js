@@ -13,6 +13,7 @@ const normalizeText = (text) => text
   .replace(/[ \t]+/g, ' ')
   .split('\n')
   .map((line) => line.trim())
+  .filter((line) => !/^--\s*\d+\s+of\s+\d+\s*--$/i.test(line) && !/^page\s+\d+(?:\s+of\s+\d+)?$/i.test(line))
   .join('\n')
   .trim();
 

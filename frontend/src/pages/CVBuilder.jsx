@@ -190,28 +190,24 @@ export const CVBuilder = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const { data } = await axiosClient.post('/api/resumes/import', formData);
+      const { data } = await axiosClient.post('/api/resumes/import', formData, {
+        headers: { 'Content-Type': false }
+      });
       const personalInfo = data?.personalInfo || {};
       const nameParts = (personalInfo.name || '').trim().split(/\s+/).filter(Boolean);
 
-      setCv((current) => ({
-        ...current,
-        firstName: nameParts.length ? nameParts.shift() : current.firstName,
-        lastName: nameParts.length ? nameParts.join(' ') : current.lastName,
-        email: personalInfo.email || current.email,
-        phone: personalInfo.phone || current.phone,
-        title: personalInfo.title || current.title,
-        skills: Array.isArray(data?.skills) && data.skills.length
-          ? data.skills.join(', ')
-          : current.skills,
-        summary: data?.summary || current.summary
-      }));
-      if (Array.isArray(data?.experience) && data.experience.length) {
-        setExperiences(readExperience(data.experience));
-      }
-      if (Array.isArray(data?.education) && data.education.length) {
-        setEducationEntries(readEducation(data.education));
-      }
+      setCv({
+        ...EMPTY_CV,
+        firstName: nameParts.shift() || '',
+        lastName: nameParts.join(' '),
+        email: personalInfo.email || '',
+        phone: personalInfo.phone || '',
+        title: personalInfo.title || '',
+        skills: Array.isArray(data?.skills) ? data.skills.join(', ') : '',
+        summary: data?.summary || ''
+      });
+      setExperiences(readExperience(data?.experience));
+      setEducationEntries(readEducation(data?.education));
       setMessage('CV imported. Review the fields and save your profile.');
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
