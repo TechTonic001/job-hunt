@@ -217,6 +217,7 @@ export const CVBuilder = () => {
         throw new Error('No resume details could be recognized. Try a clearer scan or a text-based PDF.');
       }
 
+      const hasImportedName = typeof personalInfo.name === 'string' && Boolean(personalInfo.name.trim());
       const nameParts = (personalInfo.name || '').trim().split(/\s+/).filter(Boolean);
 
       setCv({
@@ -231,7 +232,7 @@ export const CVBuilder = () => {
       });
       setExperiences(readExperience(data?.experience));
       setEducationEntries(readEducation(data?.education));
-      setMessage(nameParts.length || personalInfo.name?.trim()
+      setMessage(hasImportedName
         ? 'CV imported. Review the fields and save your profile.'
         : 'CV imported, but no name was found in the document. Enter your name before saving.');
     } catch (error) {
