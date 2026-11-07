@@ -190,15 +190,17 @@ export const CVBuilder = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const { data } = await axiosClient.post('/api/resumes/import', formData, {
+      const response = await axiosClient.post('/api/resumes/import', formData, {
         headers: { 'Content-Type': false }
       });
-      const personalInfo = data?.personalInfo || {};
+      const data = response.data.parsedData;
+      const basicInfo = data?.basicInfo || {};
       const hasImportedContent = [
-        personalInfo.name,
-        personalInfo.email,
-        personalInfo.phone,
-        personalInfo.title,
+        basicInfo.firstName,
+        basicInfo.lastName,
+        basicInfo.professionalTitle,
+        basicInfo.email,
+        basicInfo.phone,
         data?.summary
       ].some((value) => typeof value === 'string' && value.trim())
         || (Array.isArray(data?.skills) && data.skills.some((skill) => typeof skill === 'string' && skill.trim()))
@@ -217,21 +219,30 @@ export const CVBuilder = () => {
         throw new Error('No resume details could be recognized. Try a clearer scan or a text-based PDF.');
       }
 
-      const hasImportedName = typeof personalInfo.name === 'string' && Boolean(personalInfo.name.trim());
-      const nameParts = (personalInfo.name || '').trim().split(/\s+/).filter(Boolean);
+      const hasImportedName = Boolean(basicInfo.firstName?.trim() || basicInfo.lastName?.trim());
 
-      setCv({
-        ...EMPTY_CV,
-        firstName: nameParts.shift() || '',
-        lastName: nameParts.join(' '),
-        email: personalInfo.email || '',
-        phone: personalInfo.phone || '',
-        title: personalInfo.title || '',
-        skills: Array.isArray(data?.skills) ? data.skills.join(', ') : '',
-        summary: data?.summary || ''
-      });
-      setExperiences(readExperience(data?.experience));
-      setEducationEntries(readEducation(data?.education));
+      if (data.basicInfo) {
+        setCv((previous) => ({
+          ...previous,
+          firstName: basicInfo.firstName || previous.firstName,
+          lastName: basicInfo.lastName || previous.lastName,
+          title: basicInfo.professionalTitle || previous.title,
+          email: basicInfo.email || previous.email,
+          phone: basicInfo.phone || previous.phone
+        }));
+      }
+
+      if (data.summary) setCv((previous) => ({ ...previous, summary: data.summary }));
+      if (data.skills && Array.isArray(data.skills)) {
+        setCv((previous) => ({ ...previous, skills: data.skills.join(', ') }));
+      }
+      if (data.experience && Array.isArray(data.experience)) {
+        setExperiences(readExperience(data.experience));
+      }
+      if (data.education && Array.isArray(data.education)) {
+        setEducationEntries(readEducation(data.education));
+      }
+
       setMessage(hasImportedName
         ? 'CV imported. Review the fields and save your profile.'
         : 'CV imported, but no name was found in the document. Enter your name before saving.');

@@ -1,5 +1,6 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import Resume from '../models/Resume.js';
-import { extractResumeText, parseResumeText } from '../services/resumeParser.js';
+import { extractResumeText } from '../services/resumeParser.js';
 
 const getUserId = (req) => req.user?.id || req.user?._id || req.user?.uid;
 
@@ -95,9 +96,24 @@ export const importResume = async (req, res, next) => {
       return res.status(400).json({ error: 'Select a PDF or TXT CV to import.' });
     }
 
-    const { text, isOcr } = await extractResumeText(req.file);
-    const importedResume = parseResumeText(text, { isOcr });
-    return res.status(200).json(importedResume);
+    const { text } = await extractResumeText(req.file);
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY is not configured in backend/.env');
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const prompt = `Extract the CV text into a JSON object. You MUST use these exact keys: basicInfo (firstName, lastName, professionalTitle, email, phone), summary (string), skills (array of strings), experience (array of objects with keys: role, company, responsibilities), education (array of objects with keys: degree, institution, year).
+
+CV text:
+${text}`;
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json' }
+    });
+    const parsedData = JSON.parse(result.response.text());
+    return res.status(200).json({ parsedData });
   } catch (error) {
     return next(error);
   }
